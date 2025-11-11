@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner</title>
+</head>
+<body>
+    
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" hidden>    </canvas>
+     <p id="result"> </p>
+     <button id="startBtn">iniciar Escaneo</button>
+</body>
+<script type="module" src="scanner.js"></script>
+<style>
+    body {
+        background-color: black;
+    }
+    video {
+        width: 300px;
+    }
+ #result {
+    color: white;
+    text-align: center;
+ }
+ #startBtn {
+    height: 70px;
+    display: block;     
+    margin: 20px auto;   
+        border-radius: 10px;
+    box-shadow: 1px 1px 1px black;
+ }
+</style>
+</html>
