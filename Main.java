@@ -1,19 +1,33 @@
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.*;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.io.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
+/**
+ * Gestión de Inventario • Neo Swing (con Theme Toggle Light/Dark)
+ * - Arranca en LIGHT por defecto
+ * - Botón de tema en Toolbar
+ * - Renderers duales para tabla/header
+ * - Paletas centralizadas
+ */
 public class Main extends JFrame {
 
     // ======== Modelo de dominio ========
@@ -118,12 +132,70 @@ public class Main extends JFrame {
     private double uiScale = 1.0;
     private Font lafBaseFont;
     private JPanel toolbar;
+    private JPanel status;
+    private Dimension filterBaseSize;
 
     // límites de validación
     private static final int CANT_MIN = 0, CANT_MAX = 1_000_000;
     private static final BigDecimal PRECIO_MIN = new BigDecimal("0.00");
     private static final BigDecimal PRECIO_MAX = new BigDecimal("1000000000.00"); // 1e9
-    private Dimension filterBaseSize;
+
+    // ======== THEME: enum + paletas ========
+    private enum Theme {
+        DARK, LIGHT
+    }
+
+    private static final class Palette {
+        final Color bg, fg, toolbarBg, statusBg, labelFg,
+                btnBg, btnFg, btnHoverBg, border,
+                tableRowEven, tableRowOdd, tableHeaderBg, tableHeaderFg, fieldBg, fieldFg;
+
+        Palette(Color bg, Color fg, Color toolbarBg, Color statusBg, Color labelFg,
+                Color btnBg, Color btnFg, Color btnHoverBg, Color border,
+                Color tableRowEven, Color tableRowOdd, Color tableHeaderBg, Color tableHeaderFg,
+                Color fieldBg, Color fieldFg) {
+            this.bg = bg;
+            this.fg = fg;
+            this.toolbarBg = toolbarBg;
+            this.statusBg = statusBg;
+            this.labelFg = labelFg;
+            this.btnBg = btnBg;
+            this.btnFg = btnFg;
+            this.btnHoverBg = btnHoverBg;
+            this.border = border;
+            this.tableRowEven = tableRowEven;
+            this.tableRowOdd = tableRowOdd;
+            this.tableHeaderBg = tableHeaderBg;
+            this.tableHeaderFg = tableHeaderFg;
+            this.fieldBg = fieldBg;
+            this.fieldFg = fieldFg;
+        }
+    }
+
+    private Theme currentTheme = Theme.LIGHT; // arranca en CLARO
+    private final Palette PALETTE_DARK = new Palette(
+            new Color(26, 27, 30), new Color(230, 235, 240), // bg, fg
+            new Color(26, 27, 30), new Color(26, 27, 30), // toolbar bg, status bg
+            new Color(210, 215, 220), // label fg
+            new Color(44, 46, 52), new Color(230, 235, 240), // btn bg/fg
+            new Color(56, 58, 66), new Color(70, 75, 85), // btn hover, border
+            new Color(30, 32, 38), new Color(34, 36, 42), // table even/odd
+            new Color(24, 26, 32), new Color(196, 200, 208), // table header bg/fg
+            new Color(55, 55, 60), new Color(230, 235, 240) // field bg/fg
+    );
+    private final Palette PALETTE_LIGHT = new Palette(
+            Color.WHITE, Color.BLACK,
+            new Color(245, 245, 247), new Color(245, 245, 247),
+            new Color(30, 30, 30),
+            new Color(230, 230, 230), Color.BLACK,
+            new Color(210, 210, 210), new Color(200, 200, 200),
+            new Color(250, 250, 250), new Color(242, 242, 242),
+            new Color(240, 240, 240), new Color(50, 50, 50),
+            Color.WHITE, Color.BLACK);
+
+    // ======== tamaños base Toolbar/Buttons para zoom ========
+    private static final Dimension SEP_BASE_SIZE = new Dimension(12, 28);
+    private static final Insets BUTTON_BASE_PADDING = new Insets(6, 10, 6, 10);
 
     public Main() {
         super("Gestión de Inventario • Neo Swing");
@@ -133,7 +205,6 @@ public class Main extends JFrame {
             lafBaseFont = new JLabel().getFont();
 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        installNimbusDarkish();
         setLayout(new BorderLayout());
 
         // ======== Menú ========
@@ -150,11 +221,11 @@ public class Main extends JFrame {
         var btnZoomOut = makeButton("Zoom −");
         var btnZoomReset = makeButton("Reset");
         var btnShortcuts = makeButton("Shortcuts");
+        var btnTheme = makeButton("🌙 Oscuro"); // THEME: botón toggle (inicia en claro, ofrece pasar a oscuro)
 
         toolbar = new JPanel(new GridBagLayout());
         toolbar.setBorder(new EmptyBorder(10, 12, 10, 12));
         toolbar.setOpaque(true);
-        toolbar.setBackground(new Color(26, 27, 30));
 
         var gbc = new GridBagConstraints();
         gbc.insets = new Insets(0, 4, 0, 4);
@@ -186,16 +257,16 @@ public class Main extends JFrame {
             gbc.gridx = x++;
             toolbar.add(b, gbc);
         }
-
-        for (JButton b : new JButton[] { btnZoomOut, btnZoomIn, btnZoomReset }) {
-            gbc.gridx = x++;
-            toolbar.add(b, gbc);
-        }
-
         gbc.gridx = x++;
         toolbar.add(makeSeparator(), gbc);
         gbc.gridx = x++;
         toolbar.add(btnShortcuts, gbc);
+
+        // THEME: añadir al final
+        gbc.gridx = x++;
+        toolbar.add(makeSeparator(), gbc);
+        gbc.gridx = x++;
+        toolbar.add(btnTheme, gbc);
 
         add(toolbar, BorderLayout.NORTH);
 
@@ -206,24 +277,25 @@ public class Main extends JFrame {
         table.setShowGrid(false);
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setAutoCreateRowSorter(true);
-        table.setDefaultRenderer(Object.class, new FuturisticCellRenderer());
-        // header custom
-        JTableHeader header = table.getTableHeader();
-        header.setDefaultRenderer(new HeaderRenderer(table));
-        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 36));
         sorter = (TableRowSorter<TableModel>) table.getRowSorter();
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         // ======== Status bar ========
-        var status = new JPanel(new BorderLayout());
+        status = new JPanel(new BorderLayout());
         status.setBorder(new EmptyBorder(8, 12, 8, 12));
-        status.setBackground(new Color(26, 27, 30));
-        lblTotal.setForeground(new Color(200, 205, 210));
         status.add(lblTotal, BorderLayout.WEST);
         add(status, BorderLayout.SOUTH);
 
         // ======== Acciones ========
         btnCrear.addActionListener(e -> onCrear());
+        btnEditar.addActionListener(e -> onEditar());
+        btnBorrar.addActionListener(e -> onBorrar());
+        btnMostrar.addActionListener(e -> onMostrar());
+        btnGuardar.addActionListener(e -> onGuardarCSV());
+        btnAbrir.addActionListener(e -> onAbrirCSV());
+        btnZoomIn.addActionListener(e -> zoomIn());
+        btnZoomOut.addActionListener(e -> zoomOut());
+        btnZoomReset.addActionListener(e -> zoomReset());
         btnShortcuts.addActionListener(e -> JOptionPane.showMessageDialog(
                 this,
                 """
@@ -248,16 +320,24 @@ public class Main extends JFrame {
                 "Shortcuts",
                 JOptionPane.INFORMATION_MESSAGE));
 
-        btnEditar.addActionListener(e -> onEditar());
-        btnBorrar.addActionListener(e -> onBorrar());
-        btnMostrar.addActionListener(e -> onMostrar());
-        btnGuardar.addActionListener(e -> onGuardarCSV());
-        btnAbrir.addActionListener(e -> onAbrirCSV());
-        btnZoomIn.addActionListener(e -> zoomIn());
-        btnZoomOut.addActionListener(e -> zoomOut());
-        btnZoomReset.addActionListener(e -> zoomReset());
+        // THEME: toggle
+        btnTheme.addActionListener(e -> {
+            if (currentTheme == Theme.LIGHT) {
+                applyTheme(Theme.DARK);
+                btnTheme.setText("☀️ Claro");
+            } else {
+                applyTheme(Theme.LIGHT);
+                btnTheme.setText("🌙 Oscuro");
+            }
+        });
 
-        txtFilter.getDocument().addDocumentListener((SimpleDocumentListener) e -> applyFilter());
+        // Filtro
+        txtFilter.getDocument().addDocumentListener(new SimpleDocumentListener() {
+            @Override
+            public void update(DocumentEvent e) {
+                applyFilter();
+            }
+        });
 
         // ======== Atajos ========
         installShortcuts();
@@ -268,16 +348,13 @@ public class Main extends JFrame {
         model.add(new Producto(NEXT_ID.getAndIncrement(), "Monitor Quantum 27\"", 5, bd("299.00")));
         updateTotals();
 
-        getContentPane().setBackground(new Color(26, 27, 30));
+        // THEME: aplicar tema inicial (CLARO)
+        applyTheme(Theme.LIGHT);
 
-        JScrollPane sp = (JScrollPane) table.getParent().getParent();
-        sp.getViewport().setBackground(new Color(28, 30, 35));
-
+        // Guardar tamaño base del campo de búsqueda (para zoom)
         SwingUtilities.invokeLater(() -> {
-            if (filterBaseSize == null) {
-                // Toma el tamaño preferido actual como base
+            if (filterBaseSize == null)
                 filterBaseSize = txtFilter.getPreferredSize();
-            }
         });
 
         setSize(940, 560);
@@ -339,7 +416,7 @@ public class Main extends JFrame {
         JMenuItem miAbout = new JMenuItem("Acerca de…");
         miAbout.addActionListener(e -> JOptionPane.showMessageDialog(
                 this,
-                "Gestión de Inventario • Neo Swing\nUI futurista con Zoom, Filtros y CSV.\n© 2025",
+                "Gestión de Inventario\nUI con Zoom, Filtros y CSV.\n© 2025, DEVELOPERS\nAdán Pech\nIván Beltrán\nJesús Borbón",
                 "Acerca de", JOptionPane.INFORMATION_MESSAGE));
         mHelp.add(miAbout);
 
@@ -416,8 +493,7 @@ public class Main extends JFrame {
             sorter.setRowFilter(null);
             return;
         }
-        // filtra por la columna "Nombre" (índice 1), ignore case
-        sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(q), 1));
+        sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(q), 1)); // columna Nombre
     }
 
     // ======== Persistencia CSV ========
@@ -428,7 +504,6 @@ public class Main extends JFrame {
             try (var out = new PrintWriter(new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8))) {
                 out.println("id,nombre,cantidad,precio");
                 for (var p : model.all()) {
-                    // escapado simple de comas/quotes
                     out.printf("%d,%s,%d,%s%n", p.id, escapeCsv(p.nombre), p.cantidad, p.precio);
                 }
                 info("Guardado en:\n" + f.getAbsolutePath());
@@ -565,7 +640,6 @@ public class Main extends JFrame {
             int cantidad = (Integer) spCantidad.getValue();
             String sPrecio = txtPrecio.getText().trim();
 
-            // Validación avanzada
             if (nombre.isBlank()) {
                 error("El nombre no puede estar vacío.");
                 continue;
@@ -588,11 +662,10 @@ public class Main extends JFrame {
                 continue;
             }
 
-            if (base == null) {
+            if (base == null)
                 return new Producto(NEXT_ID.getAndIncrement(), nombre, cantidad, precio);
-            } else {
+            else
                 return new Producto(base.id, nombre, cantidad, precio);
-            }
         }
     }
 
@@ -600,9 +673,8 @@ public class Main extends JFrame {
     private void updateTotals() {
         int items = model.getRowCount();
         BigDecimal total = new BigDecimal("0.00");
-        for (var p : model.all()) {
+        for (var p : model.all())
             total = total.add(p.precio.multiply(new BigDecimal(p.cantidad)));
-        }
         lblTotal.setText("Items: " + items + "  |  Total: $" + moneyFmt.format(total));
     }
 
@@ -630,7 +702,7 @@ public class Main extends JFrame {
 
         uiScale = newScale;
 
-        // Escala fuentes del L&F a partir de lafBaseFont (como ya lo dejaste)
+        // Escala fuentes del L&F a partir de lafBaseFont
         Font base = (lafBaseFont != null) ? lafBaseFont : UIManager.getFont("Label.font");
         if (base == null)
             base = new JLabel().getFont();
@@ -639,21 +711,16 @@ public class Main extends JFrame {
             if (key.toString().endsWith(".font"))
                 UIManager.put(key, scaled);
         }
-
         SwingUtilities.updateComponentTreeUI(this);
 
         Font f = scaledFont();
 
         // Aplica fuente a toda la ventana (contenido, toolbar, status, etc.)
         applyFontRecursively(getContentPane(), f);
-
-        // Toolbar explícito (por si lo tienes como campo)
         applyFontRecursively(toolbar, f);
-
-        // Menús
         applyFontToMenuBar(getJMenuBar(), f);
 
-        // Header de la tabla (por si tu renderer lo sobrescribe)
+        // Header de la tabla
         table.getTableHeader().setFont(f.deriveFont(Font.BOLD));
 
         // Ajustes de tabla
@@ -662,7 +729,7 @@ public class Main extends JFrame {
                 table.getTableHeader().getPreferredSize().width,
                 (int) Math.round(36 * uiScale)));
 
-        // 🔸 NUEVO: escalar toolbar
+        // Escalar toolbar (padding/breaks)
         scaleToolbarUI();
 
         revalidate();
@@ -675,7 +742,6 @@ public class Main extends JFrame {
 
         for (Component c : toolbar.getComponents()) {
             if (c instanceof JButton b) {
-                // Reescala padding del botón
                 Insets base = (Insets) b.getClientProperty("basePadding");
                 if (base == null)
                     base = BUTTON_BASE_PADDING;
@@ -684,11 +750,12 @@ public class Main extends JFrame {
                         (int) Math.round(base.left * uiScale),
                         (int) Math.round(base.bottom * uiScale),
                         (int) Math.round(base.right * uiScale));
-                // reconstruye el CompoundBorder con el nuevo inner padding
+                // reconstruye el CompoundBorder con inner padding escalado
+                // color de borde según tema actual
+                Color border = (currentTheme == Theme.DARK) ? PALETTE_DARK.border : PALETTE_LIGHT.border;
                 b.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(new Color(70, 75, 85)),
+                        BorderFactory.createLineBorder(border),
                         new EmptyBorder(scaled)));
-                // limpia preferredSize para que el layout recalcule según fuente+padding
                 b.setPreferredSize(null);
             } else if (c instanceof JSeparator sep) {
                 Dimension base = (Dimension) sep.getClientProperty("baseSize");
@@ -706,7 +773,6 @@ public class Main extends JFrame {
                     (int) Math.round(filterBaseSize.width * uiScale),
                     (int) Math.round(filterBaseSize.height * uiScale)));
         } else {
-            // fallback: limpia para que recalcule
             txtFilter.setPreferredSize(null);
         }
 
@@ -714,29 +780,38 @@ public class Main extends JFrame {
         toolbar.repaint();
     }
 
-    private void applyScaleTo(Component c) {
-        Font f = c.getFont();
+    private void applyFontRecursively(Component c, Font f) {
+        if (c == null)
+            return;
         if (f != null)
-            c.setFont(f.deriveFont((float) (getBaseFontSize(f) * uiScale)));
+            c.setFont(f);
         if (c instanceof Container cont) {
             for (Component child : cont.getComponents())
-                applyScaleTo(child);
+                applyFontRecursively(child, f);
         }
     }
 
-    private float getBaseFontSize(Font f) {
-        return Math.max(11f, f.getSize2D());
+    private void applyFontToMenuBar(JMenuBar mb, Font f) {
+        if (mb == null)
+            return;
+        for (MenuElement me : mb.getSubElements()) {
+            Component c = me.getComponent();
+            if (f != null)
+                c.setFont(f);
+            if (c instanceof JMenu jmenu) {
+                for (Component mc : jmenu.getMenuComponents())
+                    mc.setFont(f);
+            }
+        }
     }
 
-    private void packForScale() {
-        // mantén tamaño si ya es grande; de lo contrario ajusta
-        if (getWidth() < 900 || getHeight() < 520)
-            pack();
-        revalidate();
+    private Font scaledFont() {
+        Font base = (lafBaseFont != null) ? lafBaseFont : new JLabel().getFont();
+        return base.deriveFont((float) (base.getSize2D() * uiScale));
     }
 
-    // ======== Estilo / Look & Feel ========
-    private static void installNimbusDarkish() {
+    // ======== THEME: Look&Feel base + overrides ========
+    private static void installNimbusBase() {
         try {
             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -746,7 +821,10 @@ public class Main extends JFrame {
             }
         } catch (Exception ignored) {
         }
-        // Ajustes "dark-ish"
+    }
+
+    private static void installNimbusDarkish() {
+        installNimbusBase();
         UIManager.put("control", new Color(36, 38, 45));
         UIManager.put("info", new Color(36, 38, 45));
         UIManager.put("nimbusBase", new Color(18, 20, 25));
@@ -759,27 +837,22 @@ public class Main extends JFrame {
         UIManager.put("Table.showGrid", Boolean.FALSE);
     }
 
-    private static class HeaderRenderer implements TableCellRenderer {
-        private final TableCellRenderer delegate;
-
-        HeaderRenderer(JTable table) {
-            this.delegate = table.getTableHeader().getDefaultRenderer();
-        }
-
-        @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
-                int row, int column) {
-            Component c = delegate.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            c.setBackground(new Color(24, 26, 32));
-            c.setForeground(new Color(196, 200, 208));
-            c.setFont(c.getFont().deriveFont(Font.BOLD));
-            if (c instanceof JComponent jc)
-                jc.setBorder(new EmptyBorder(6, 8, 6, 8));
-            return c;
-        }
+    private static void installNimbusLightish() {
+        installNimbusBase();
+        UIManager.put("control", new Color(250, 250, 250));
+        UIManager.put("info", new Color(250, 250, 250));
+        UIManager.put("nimbusBase", new Color(180, 180, 190));
+        UIManager.put("nimbusBlueGrey", new Color(210, 210, 215));
+        UIManager.put("nimbusLightBackground", Color.WHITE);
+        UIManager.put("text", Color.BLACK);
+        UIManager.put("menuText", Color.BLACK);
+        UIManager.put("controlText", Color.BLACK);
+        UIManager.put("Table.alternateRowColor", new Color(245, 245, 245));
+        UIManager.put("Table.showGrid", Boolean.FALSE);
     }
 
-    private static class FuturisticCellRenderer extends DefaultTableCellRenderer {
+    // ======== RENDERERS: dual para celdas y header ========
+    class DarkCellRenderer extends DefaultTableCellRenderer {
         @Override
         protected void setValue(Object value) {
             if (value instanceof BigDecimal bd)
@@ -793,7 +866,7 @@ public class Main extends JFrame {
                 int row, int column) {
             Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             if (!isSelected) {
-                c.setBackground((row % 2 == 0) ? new Color(30, 32, 38) : new Color(34, 36, 42));
+                c.setBackground((row % 2 == 0) ? PALETTE_DARK.tableRowEven : PALETTE_DARK.tableRowOdd);
                 setForeground(new Color(225, 230, 235));
             }
             if (c instanceof JComponent jc)
@@ -802,49 +875,220 @@ public class Main extends JFrame {
         }
     }
 
+    class LightCellRenderer extends DefaultTableCellRenderer {
+        @Override
+        protected void setValue(Object value) {
+            if (value instanceof BigDecimal bd)
+                super.setValue("$" + new DecimalFormat("#,##0.00").format(bd));
+            else
+                super.setValue(value);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
+            Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            if (!isSelected) {
+                c.setBackground((row % 2 == 0) ? PALETTE_LIGHT.tableRowEven : PALETTE_LIGHT.tableRowOdd);
+                setForeground(PALETTE_LIGHT.fg);
+            }
+            if (c instanceof JComponent jc)
+                jc.setBorder(new EmptyBorder(6, 8, 6, 8));
+            return c;
+        }
+    }
+
+    class DarkHeaderRenderer implements TableCellRenderer {
+        private final TableCellRenderer delegate;
+
+        DarkHeaderRenderer(JTable table) {
+            this.delegate = table.getTableHeader().getDefaultRenderer();
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
+            Component c = delegate.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            c.setBackground(PALETTE_DARK.tableHeaderBg);
+            c.setForeground(PALETTE_DARK.tableHeaderFg);
+            c.setFont(c.getFont().deriveFont(Font.BOLD));
+            if (c instanceof JComponent jc)
+                jc.setBorder(new EmptyBorder(6, 8, 6, 8));
+            return c;
+        }
+    }
+
+    class LightHeaderRenderer implements TableCellRenderer {
+        private final TableCellRenderer delegate;
+
+        LightHeaderRenderer(JTable table) {
+            this.delegate = table.getTableHeader().getDefaultRenderer();
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
+            Component c = delegate.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            c.setBackground(PALETTE_LIGHT.tableHeaderBg);
+            c.setForeground(PALETTE_LIGHT.tableHeaderFg);
+            c.setFont(c.getFont().deriveFont(Font.BOLD));
+            if (c instanceof JComponent jc)
+                jc.setBorder(new EmptyBorder(6, 8, 6, 8));
+            return c;
+        }
+    }
+
+    // ======== THEME: aplicar a toda la UI ========
+    private void applyTheme(Theme theme) {
+        this.currentTheme = theme;
+
+        // 1) Look&Feel base + overrides
+        if (theme == Theme.DARK)
+            installNimbusDarkish();
+        else
+            installNimbusLightish();
+
+        // 2) Colores de contenedores principales
+        var pal = (theme == Theme.DARK) ? PALETTE_DARK : PALETTE_LIGHT;
+        getContentPane().setBackground(pal.bg);
+        if (toolbar != null)
+            toolbar.setBackground(pal.toolbarBg);
+        lblTotal.setForeground(pal.fg);
+        if (status != null)
+            status.setBackground(pal.statusBg);
+
+        // 3) Tabla: renderers y header según tema
+        TableCellRenderer cellR = (theme == Theme.DARK)
+                ? new DarkCellRenderer()
+                : new LightCellRenderer();
+
+        table.setDefaultRenderer(Object.class, cellR);
+        table.setDefaultRenderer(String.class, cellR);
+        table.setDefaultRenderer(Number.class, cellR);
+        table.setDefaultRenderer(Integer.class, cellR);
+        table.setDefaultRenderer(BigDecimal.class, cellR);
+
+        // Colores base/selección de la tabla
+        table.setBackground(pal.bg);
+        table.setForeground(pal.fg);
+        table.setGridColor(pal.border);
+        table.setSelectionBackground(theme == Theme.DARK ? new Color(70, 75, 85) : new Color(200, 220, 255));
+        table.setSelectionForeground(theme == Theme.DARK ? pal.fg : Color.BLACK);
+
+        // Header
+        JTableHeader header = table.getTableHeader();
+        header.setDefaultRenderer(theme == Theme.DARK ? new DarkHeaderRenderer(table) : new LightHeaderRenderer(table));
+        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 36));
+
+        // Viewport del JScrollPane (para que el “fondo entre filas” no quede claro)
+        Container p = table.getParent();
+        if (p != null && p.getParent() instanceof JScrollPane sp) {
+            sp.getViewport().setBackground(pal.bg);
+            sp.setBackground(pal.bg);
+        }
+
+        // 4) Repintar todos los componentes (fondo/primer plano/fields/botones/combos)
+        applyPaletteToTree(getContentPane(), pal);
+
+        scaleToolbarUI();
+
+        // 5) Refrescar UI
+        SwingUtilities.updateComponentTreeUI(this);
+        revalidate();
+        repaint();
+    }
+
+    private void applyPaletteToTree(Component root, Palette pal) {
+        Deque<Component> stack = new ArrayDeque<>();
+        stack.push(root);
+        while (!stack.isEmpty()) {
+            Component c = stack.pop();
+
+            // basicos
+            if (c instanceof JScrollPane || c instanceof JPanel || c instanceof JLabel)
+                c.setBackground(pal.bg);
+            c.setForeground(pal.fg);
+
+            // fields
+            if (c instanceof JTextComponent tc) {
+                tc.setBackground(pal.fieldBg);
+                tc.setForeground(pal.fieldFg);
+                tc.setCaretColor(pal.fieldFg);
+                if (tc instanceof JComponent jc)
+                    jc.setBorder(BorderFactory.createLineBorder(pal.border));
+            }
+
+            // botones / toggles
+            if (c instanceof JButton b) {
+                b.setBackground(pal.btnBg);
+                b.setForeground(pal.btnFg);
+                if (b instanceof JComponent jc)
+                    jc.setBorder(BorderFactory.createLineBorder(pal.border));
+            } else if (c instanceof AbstractButton ab) {
+                ab.setBackground(pal.bg);
+                ab.setForeground(pal.fg);
+            }
+
+            // combo
+            if (c instanceof JComboBox<?> combo) {
+                combo.setBackground(pal.btnBg);
+                combo.setForeground(pal.btnFg);
+                combo.setRenderer(new DefaultListCellRenderer() {
+                    @Override
+                    public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                            boolean isSelected, boolean cellHasFocus) {
+                        Component r = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                        r.setBackground(isSelected ? pal.border : pal.btnBg);
+                        r.setForeground(pal.btnFg);
+                        list.setBackground(pal.btnBg);
+                        list.setForeground(pal.btnFg);
+                        return r;
+                    }
+                });
+            }
+
+            if (c instanceof Container cont) {
+                for (Component child : cont.getComponents())
+                    stack.push(child);
+            }
+        }
+    }
+
     // ======== Util ========
     private JLabel styledLabel(String text) {
         var l = new JLabel(text);
-        l.setForeground(new Color(210, 215, 220));
+        l.setForeground(currentTheme == Theme.DARK ? PALETTE_DARK.labelFg : PALETTE_LIGHT.labelFg);
         return l;
     }
-
-    private static final Dimension SEP_BASE_SIZE = new Dimension(12, 28);
 
     private JSeparator makeSeparator() {
         var sep = new JSeparator(SwingConstants.VERTICAL);
         sep.putClientProperty("baseSize", SEP_BASE_SIZE);
         sep.setPreferredSize(SEP_BASE_SIZE);
-        sep.setBackground(new Color(60, 64, 72));
+
+        Color border = (currentTheme == Theme.DARK) ? PALETTE_DARK.border : PALETTE_LIGHT.border;
+        sep.setForeground(border);
+        sep.setBackground(border);
         return sep;
     }
-
-    private static final Insets BUTTON_BASE_PADDING = new Insets(6, 10, 6, 10);
 
     private JButton makeButton(String text) {
         var b = new JButton(text);
         b.setFocusPainted(false);
-        // guardar el padding base como clientProperty para reescalarlo luego..
+        b.setOpaque(true);
+        b.setContentAreaFilled(true);
         b.putClientProperty("basePadding", BUTTON_BASE_PADDING);
 
-        var inner = new EmptyBorder(BUTTON_BASE_PADDING);
-        b.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(70, 75, 85)),
-                inner));
-        b.setBackground(new Color(44, 46, 52));
-        b.setForeground(new Color(230, 235, 240));
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        b.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                b.setBackground(new Color(56, 58, 66));
-            }
+        Color baseBg = (currentTheme == Theme.DARK) ? PALETTE_DARK.btnBg : PALETTE_LIGHT.btnBg;
+        Color baseFg = (currentTheme == Theme.DARK) ? PALETTE_DARK.btnFg : PALETTE_LIGHT.btnFg;
+        Color border = (currentTheme == Theme.DARK) ? PALETTE_DARK.border : PALETTE_LIGHT.border;
 
-            @Override
-            public void mouseExited(MouseEvent e) {
-                b.setBackground(new Color(44, 46, 52));
-            }
-        });
+        var inner = new EmptyBorder(BUTTON_BASE_PADDING);
+        b.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(border), inner));
+        b.setBackground(baseBg);
+        b.setForeground(baseFg);
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
         return b;
     }
 
@@ -866,7 +1110,7 @@ public class Main extends JFrame {
     }
 
     private void selectLastRow() {
-        int last = table.getRowCount() - 1;
+        int last = model.getRowCount() - 1;
         if (last >= 0) {
             table.getSelectionModel().setSelectionInterval(last, last);
             table.scrollRectToVisible(table.getCellRect(last, 0, true));
@@ -889,33 +1133,22 @@ public class Main extends JFrame {
         bind(im, am, "focusFilter", KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK),
                 e -> txtFilter.requestFocusInWindow());
         bind(im, am, "delete", KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), e -> onBorrar());
-        // ---- ZOOM IN (varias combinaciones) ----
-        // Ctrl + Shift + '=' (la manera más común para '+')
-        bind(im, am, "zoomIn_eq_shift", KeyStroke.getKeyStroke(
-                KeyEvent.VK_EQUALS, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK),
-                e -> zoomIn());
 
-        // Ctrl + '=' (muchas apps aceptan esto como zoom in)
-        bind(im, am, "zoomIn_eq_plain", KeyStroke.getKeyStroke(
-                KeyEvent.VK_EQUALS, InputEvent.CTRL_DOWN_MASK),
+        // Zoom combos
+        bind(im, am, "zoomIn_eq_shift",
+                KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK),
                 e -> zoomIn());
-
-        // Ctrl + ADD (teclado numérico '+')
-        bind(im, am, "zoomIn_numpad", KeyStroke.getKeyStroke(
-                KeyEvent.VK_ADD, InputEvent.CTRL_DOWN_MASK),
+        bind(im, am, "zoomIn_eq_plain", KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, InputEvent.CTRL_DOWN_MASK),
                 e -> zoomIn());
-
-        // (Opcional) si tu JDK/teclado reporta VK_PLUS, bindea también:
-        try {
-            bind(im, am, "zoomIn_plus", KeyStroke.getKeyStroke(
-                    KeyEvent.class.getField("VK_PLUS").getInt(null), InputEvent.CTRL_DOWN_MASK),
+        bind(im, am, "zoomIn_numpad", KeyStroke.getKeyStroke(KeyEvent.VK_ADD, InputEvent.CTRL_DOWN_MASK),
+                e -> zoomIn());
+        try { // VK_PLUS opcional
+            bind(im, am, "zoomIn_plus",
+                    KeyStroke.getKeyStroke(KeyEvent.class.getField("VK_PLUS").getInt(null), InputEvent.CTRL_DOWN_MASK),
                     e -> zoomIn());
         } catch (Exception ignore) {
-            /* VK_PLUS no existe en todos los JDKs */ }
-
-        // Ctrl + '-'
+        }
         bind(im, am, "zoomOut", KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, InputEvent.CTRL_DOWN_MASK), e -> zoomOut());
-        // Ctrl + '0'
         bind(im, am, "zoomReset", KeyStroke.getKeyStroke(KeyEvent.VK_0, InputEvent.CTRL_DOWN_MASK), e -> zoomReset());
     }
 
@@ -929,79 +1162,28 @@ public class Main extends JFrame {
         });
     }
 
-    // Fuente escalada según uiScale
-    private Font scaledFont() {
-        Font base = (lafBaseFont != null) ? lafBaseFont : UIManager.getFont("Label.font");
-        if (base == null)
-            base = new JLabel().getFont();
-        return base.deriveFont((float) (base.getSize2D() * uiScale));
-    }
+    // ======== SimpleDocumentListener (para el filtro) ========
+    interface SimpleDocumentListener extends javax.swing.event.DocumentListener {
+        void update(DocumentEvent e);
 
-    // Aplica la fuente a todo un árbol de componentes (toolbar, contentPane, etc.)
-    private void applyFontRecursively(Component c, Font f) {
-        if (c == null)
-            return;
-        c.setFont(f);
-
-        // Ajustes especiales
-        if (c instanceof JTable t) {
-            JTableHeader h = t.getTableHeader();
-            if (h != null)
-                h.setFont(f.deriveFont(Font.BOLD));
+        @Override
+        default void insertUpdate(DocumentEvent e) {
+            update(e);
         }
 
-        if (c instanceof Container cont) {
-            for (Component child : cont.getComponents()) {
-                applyFontRecursively(child, f);
-            }
+        @Override
+        default void removeUpdate(DocumentEvent e) {
+            update(e);
+        }
+
+        @Override
+        default void changedUpdate(DocumentEvent e) {
+            update(e);
         }
     }
 
-    // Aplica la fuente a menús/menubar (los menús no son hijos “normales” del
-    // contenedor)
-    private void applyFontToMenuBar(JMenuBar mb, Font f) {
-        if (mb == null)
-            return;
-        mb.setFont(f);
-        for (int i = 0; i < mb.getMenuCount(); i++) {
-            JMenu m = mb.getMenu(i);
-            if (m == null)
-                continue;
-            m.setFont(f);
-            for (int j = 0; j < m.getItemCount(); j++) {
-                JMenuItem it = m.getItem(j);
-                if (it != null)
-                    it.setFont(f);
-            }
-        }
-    }
-
-    // ======== Arranque ========
+    // ======== Main ========
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            installNimbusDarkish();
-            Main ui = new Main();
-            ui.setVisible(true);
-        });
-    }
-
-    // ======== DocumentListener simple ========
-    private interface SimpleDocumentListener extends javax.swing.event.DocumentListener {
-        void update(javax.swing.event.DocumentEvent e);
-
-        @Override
-        default void insertUpdate(javax.swing.event.DocumentEvent e) {
-            update(e);
-        }
-
-        @Override
-        default void removeUpdate(javax.swing.event.DocumentEvent e) {
-            update(e);
-        }
-
-        @Override
-        default void changedUpdate(javax.swing.event.DocumentEvent e) {
-            update(e);
-        }
+        SwingUtilities.invokeLater(() -> new Main().setVisible(true));
     }
 }
