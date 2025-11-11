@@ -14,17 +14,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
-/**
- * Gestión de Inventario (Swing Futurista)
- * Características:
- * - CRUD con diálogo validado
- * - Persistencia CSV (abrir/guardar)
- * - Filtro por nombre (TableRowSorter)
- * - Atajos de teclado: Ctrl+N/E/S/O/F, Delete, Ctrl+ +/- / 0
- * - Zoom global (fuentes y tamaños)
- * - Totales (conteo y valor total)
- * - Estilo: Nimbus + dark-ish + header custom
- */
 public class Main extends JFrame {
 
     // ======== Modelo de dominio ========
@@ -44,8 +33,9 @@ public class Main extends JFrame {
 
     // ======== TableModel ========
     static class InventarioModel extends AbstractTableModel {
-        private final String[] cols = {"ID", "Nombre", "Cantidad", "Precio", "Subtotal"};
-        private final Class<?>[] types = {Integer.class, String.class, Integer.class, BigDecimal.class, BigDecimal.class};
+        private final String[] cols = { "ID", "Nombre", "Cantidad", "Precio", "Subtotal" };
+        private final Class<?>[] types = { Integer.class, String.class, Integer.class, BigDecimal.class,
+                BigDecimal.class };
         private final List<Producto> data = new ArrayList<>();
 
         @Override
@@ -135,7 +125,6 @@ public class Main extends JFrame {
     private static final BigDecimal PRECIO_MAX = new BigDecimal("1000000000.00"); // 1e9
     private Dimension filterBaseSize;
 
-
     public Main() {
         super("Gestión de Inventario • Neo Swing");
 
@@ -150,7 +139,6 @@ public class Main extends JFrame {
         // ======== Menú ========
         setJMenuBar(createMenuBar());
 
-
         // ======== Toolbar ========
         var btnCrear = makeButton("Crear");
         var btnEditar = makeButton("Editar");
@@ -163,25 +151,23 @@ public class Main extends JFrame {
         var btnZoomReset = makeButton("Reset");
         var btnShortcuts = makeButton("Shortcuts");
 
-
         toolbar = new JPanel(new GridBagLayout());
         toolbar.setBorder(new EmptyBorder(10, 12, 10, 12));
         toolbar.setOpaque(true);
         toolbar.setBackground(new Color(26, 27, 30));
-
 
         var gbc = new GridBagConstraints();
         gbc.insets = new Insets(0, 4, 0, 4);
         gbc.gridy = 0;
 
         int x = 0;
-        for (JButton b : new JButton[]{btnCrear, btnEditar, btnBorrar, btnMostrar}) {
+        for (JButton b : new JButton[] { btnCrear, btnEditar, btnBorrar, btnMostrar }) {
             gbc.gridx = x++;
             toolbar.add(b, gbc);
         }
         gbc.gridx = x++;
         toolbar.add(makeSeparator(), gbc);
-        for (JButton b : new JButton[]{btnGuardar, btnAbrir}) {
+        for (JButton b : new JButton[] { btnGuardar, btnAbrir }) {
             gbc.gridx = x++;
             toolbar.add(b, gbc);
         }
@@ -196,12 +182,12 @@ public class Main extends JFrame {
 
         gbc.gridx = x++;
         toolbar.add(makeSeparator(), gbc);
-        for (JButton b : new JButton[]{btnZoomOut, btnZoomIn, btnZoomReset}) {
+        for (JButton b : new JButton[] { btnZoomOut, btnZoomIn, btnZoomReset }) {
             gbc.gridx = x++;
             toolbar.add(b, gbc);
         }
 
-        for (JButton b : new JButton[]{btnZoomOut, btnZoomIn, btnZoomReset}) {
+        for (JButton b : new JButton[] { btnZoomOut, btnZoomIn, btnZoomReset }) {
             gbc.gridx = x++;
             toolbar.add(b, gbc);
         }
@@ -210,7 +196,6 @@ public class Main extends JFrame {
         toolbar.add(makeSeparator(), gbc);
         gbc.gridx = x++;
         toolbar.add(btnShortcuts, gbc);
-
 
         add(toolbar, BorderLayout.NORTH);
 
@@ -245,24 +230,23 @@ public class Main extends JFrame {
                         Atajos y acciones
                         -----------------
                         Crear: botón "Crear" (o Ctrl+N).
-                        
+
                         Editar: selecciona una fila → "Editar" (o Ctrl+E).
-                        
+
                         Borrar: selecciona una fila → "Borrar" (o tecla Delete).
-                        
+
                         Mostrar: selecciona una fila → "Mostrar".
-                        
+
                         Guardar: "Guardar" (o Ctrl+S) → elige .csv.
-                        
+
                         Abrir: "Abrir" (o Ctrl+O) → selecciona un .csv previamente guardado.
-                        
+
                         Buscar: escribe en "Buscar".
-                        
+
                         Zoom: Ctrl++, Ctrl+-, Ctrl+0 (o botones "Zoom").
                         """,
                 "Shortcuts",
-                JOptionPane.INFORMATION_MESSAGE
-        ));
+                JOptionPane.INFORMATION_MESSAGE));
 
         btnEditar.addActionListener(e -> onEditar());
         btnBorrar.addActionListener(e -> onBorrar());
@@ -284,9 +268,7 @@ public class Main extends JFrame {
         model.add(new Producto(NEXT_ID.getAndIncrement(), "Monitor Quantum 27\"", 5, bd("299.00")));
         updateTotals();
 
-
         getContentPane().setBackground(new Color(26, 27, 30));
-
 
         JScrollPane sp = (JScrollPane) table.getParent().getParent();
         sp.getViewport().setBackground(new Color(28, 30, 35));
@@ -297,7 +279,6 @@ public class Main extends JFrame {
                 filterBaseSize = txtFilter.getPreferredSize();
             }
         });
-
 
         setSize(940, 560);
         setLocationRelativeTo(null);
@@ -439,7 +420,6 @@ public class Main extends JFrame {
         sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(q), 1));
     }
 
-
     // ======== Persistencia CSV ========
     private void onGuardarCSV() {
         var fc = createCSVChooser("Guardar inventario");
@@ -520,25 +500,31 @@ public class Main extends JFrame {
                     if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
                         sb.append('"');
                         i++;
-                    } else inQ = false;
-                } else sb.append(c);
+                    } else
+                        inQ = false;
+                } else
+                    sb.append(c);
             } else {
                 if (c == ',') {
                     out.add(sb.toString());
                     sb.setLength(0);
-                } else if (c == '"') inQ = true;
-                else sb.append(c);
+                } else if (c == '"')
+                    inQ = true;
+                else
+                    sb.append(c);
             }
         }
         out.add(sb.toString());
-        if (out.size() != expected) throw new IllegalArgumentException("CSV inválido");
+        if (out.size() != expected)
+            throw new IllegalArgumentException("CSV inválido");
         return out.toArray(String[]::new);
     }
 
     // ======== Diálogo crear/editar ========
     private Producto showProductoDialog(Producto base) {
         var txtNombre = new JTextField(22);
-        var spCantidad = new JSpinner(new SpinnerNumberModel((base == null ? 0 : base.cantidad), CANT_MIN, CANT_MAX, 1));
+        var spCantidad = new JSpinner(
+                new SpinnerNumberModel((base == null ? 0 : base.cantidad), CANT_MIN, CANT_MAX, 1));
         var txtPrecio = new JTextField(10);
 
         if (base != null) {
@@ -572,7 +558,8 @@ public class Main extends JFrame {
         while (true) {
             int opt = JOptionPane.showConfirmDialog(this, form, titulo,
                     JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-            if (opt != JOptionPane.OK_OPTION) return null;
+            if (opt != JOptionPane.OK_OPTION)
+                return null;
 
             String nombre = txtNombre.getText().trim();
             int cantidad = (Integer) spCantidad.getValue();
@@ -590,7 +577,8 @@ public class Main extends JFrame {
 
             BigDecimal precio;
             try {
-                if (!sPrecio.matches("\\d{1,12}([.,]\\d{1,2})?")) throw new NumberFormatException();
+                if (!sPrecio.matches("\\d{1,12}([.,]\\d{1,2})?"))
+                    throw new NumberFormatException();
                 sPrecio = sPrecio.replace(',', '.');
                 precio = new BigDecimal(sPrecio);
                 if (precio.compareTo(PRECIO_MIN) < 0 || precio.compareTo(PRECIO_MAX) > 0)
@@ -635,44 +623,44 @@ public class Main extends JFrame {
         setScale(newScale, false);
     }
 
-
     private void setScale(double newScale, boolean force) {
         newScale = Math.max(0.7, Math.min(2.0, newScale));
-        if (!force && Math.abs(newScale - uiScale) < 0.01) return;
+        if (!force && Math.abs(newScale - uiScale) < 0.01)
+            return;
 
         uiScale = newScale;
 
         // Escala fuentes del L&F a partir de lafBaseFont (como ya lo dejaste)
         Font base = (lafBaseFont != null) ? lafBaseFont : UIManager.getFont("Label.font");
-        if (base == null) base = new JLabel().getFont();
+        if (base == null)
+            base = new JLabel().getFont();
         Font scaled = base.deriveFont((float) (base.getSize2D() * uiScale));
         for (Object key : UIManager.getLookAndFeelDefaults().keySet()) {
-            if (key.toString().endsWith(".font")) UIManager.put(key, scaled);
+            if (key.toString().endsWith(".font"))
+                UIManager.put(key, scaled);
         }
 
         SwingUtilities.updateComponentTreeUI(this);
 
         Font f = scaledFont();
 
-// Aplica fuente a toda la ventana (contenido, toolbar, status, etc.)
+        // Aplica fuente a toda la ventana (contenido, toolbar, status, etc.)
         applyFontRecursively(getContentPane(), f);
 
-// Toolbar explícito (por si lo tienes como campo)
+        // Toolbar explícito (por si lo tienes como campo)
         applyFontRecursively(toolbar, f);
 
-// Menús
+        // Menús
         applyFontToMenuBar(getJMenuBar(), f);
 
-// Header de la tabla (por si tu renderer lo sobrescribe)
+        // Header de la tabla (por si tu renderer lo sobrescribe)
         table.getTableHeader().setFont(f.deriveFont(Font.BOLD));
-
 
         // Ajustes de tabla
         table.setRowHeight((int) Math.round(28 * uiScale));
         table.getTableHeader().setPreferredSize(new Dimension(
                 table.getTableHeader().getPreferredSize().width,
-                (int) Math.round(36 * uiScale)
-        ));
+                (int) Math.round(36 * uiScale)));
 
         // 🔸 NUEVO: escalar toolbar
         scaleToolbarUI();
@@ -681,35 +669,34 @@ public class Main extends JFrame {
         repaint();
     }
 
-
     private void scaleToolbarUI() {
-        if (toolbar == null) return;
+        if (toolbar == null)
+            return;
 
         for (Component c : toolbar.getComponents()) {
             if (c instanceof JButton b) {
                 // Reescala padding del botón
                 Insets base = (Insets) b.getClientProperty("basePadding");
-                if (base == null) base = BUTTON_BASE_PADDING;
+                if (base == null)
+                    base = BUTTON_BASE_PADDING;
                 Insets scaled = new Insets(
                         (int) Math.round(base.top * uiScale),
                         (int) Math.round(base.left * uiScale),
                         (int) Math.round(base.bottom * uiScale),
-                        (int) Math.round(base.right * uiScale)
-                );
+                        (int) Math.round(base.right * uiScale));
                 // reconstruye el CompoundBorder con el nuevo inner padding
                 b.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(new Color(70, 75, 85)),
-                        new EmptyBorder(scaled)
-                ));
+                        new EmptyBorder(scaled)));
                 // limpia preferredSize para que el layout recalcule según fuente+padding
                 b.setPreferredSize(null);
             } else if (c instanceof JSeparator sep) {
                 Dimension base = (Dimension) sep.getClientProperty("baseSize");
-                if (base == null) base = SEP_BASE_SIZE;
+                if (base == null)
+                    base = SEP_BASE_SIZE;
                 sep.setPreferredSize(new Dimension(
                         (int) Math.round(base.width * uiScale),
-                        (int) Math.round(base.height * uiScale)
-                ));
+                        (int) Math.round(base.height * uiScale)));
             }
         }
 
@@ -717,8 +704,7 @@ public class Main extends JFrame {
         if (filterBaseSize != null) {
             txtFilter.setPreferredSize(new Dimension(
                     (int) Math.round(filterBaseSize.width * uiScale),
-                    (int) Math.round(filterBaseSize.height * uiScale)
-            ));
+                    (int) Math.round(filterBaseSize.height * uiScale)));
         } else {
             // fallback: limpia para que recalcule
             txtFilter.setPreferredSize(null);
@@ -728,12 +714,13 @@ public class Main extends JFrame {
         toolbar.repaint();
     }
 
-
     private void applyScaleTo(Component c) {
         Font f = c.getFont();
-        if (f != null) c.setFont(f.deriveFont((float) (getBaseFontSize(f) * uiScale)));
+        if (f != null)
+            c.setFont(f.deriveFont((float) (getBaseFontSize(f) * uiScale)));
         if (c instanceof Container cont) {
-            for (Component child : cont.getComponents()) applyScaleTo(child);
+            for (Component child : cont.getComponents())
+                applyScaleTo(child);
         }
     }
 
@@ -743,7 +730,8 @@ public class Main extends JFrame {
 
     private void packForScale() {
         // mantén tamaño si ya es grande; de lo contrario ajusta
-        if (getWidth() < 900 || getHeight() < 520) pack();
+        if (getWidth() < 900 || getHeight() < 520)
+            pack();
         revalidate();
     }
 
@@ -779,12 +767,14 @@ public class Main extends JFrame {
         }
 
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
             Component c = delegate.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             c.setBackground(new Color(24, 26, 32));
             c.setForeground(new Color(196, 200, 208));
             c.setFont(c.getFont().deriveFont(Font.BOLD));
-            if (c instanceof JComponent jc) jc.setBorder(new EmptyBorder(6, 8, 6, 8));
+            if (c instanceof JComponent jc)
+                jc.setBorder(new EmptyBorder(6, 8, 6, 8));
             return c;
         }
     }
@@ -792,18 +782,22 @@ public class Main extends JFrame {
     private static class FuturisticCellRenderer extends DefaultTableCellRenderer {
         @Override
         protected void setValue(Object value) {
-            if (value instanceof BigDecimal bd) super.setValue("$" + new DecimalFormat("#,##0.00").format(bd));
-            else super.setValue(value);
+            if (value instanceof BigDecimal bd)
+                super.setValue("$" + new DecimalFormat("#,##0.00").format(bd));
+            else
+                super.setValue(value);
         }
 
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
             Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             if (!isSelected) {
                 c.setBackground((row % 2 == 0) ? new Color(30, 32, 38) : new Color(34, 36, 42));
                 setForeground(new Color(225, 230, 235));
             }
-            if (c instanceof JComponent jc) jc.setBorder(new EmptyBorder(6, 8, 6, 8));
+            if (c instanceof JComponent jc)
+                jc.setBorder(new EmptyBorder(6, 8, 6, 8));
             return c;
         }
     }
@@ -825,7 +819,6 @@ public class Main extends JFrame {
         return sep;
     }
 
-
     private static final Insets BUTTON_BASE_PADDING = new Insets(6, 10, 6, 10);
 
     private JButton makeButton(String text) {
@@ -837,8 +830,7 @@ public class Main extends JFrame {
         var inner = new EmptyBorder(BUTTON_BASE_PADDING);
         b.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(70, 75, 85)),
-                inner
-        ));
+                inner));
         b.setBackground(new Color(44, 46, 52));
         b.setForeground(new Color(230, 235, 240));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -856,9 +848,9 @@ public class Main extends JFrame {
         return b;
     }
 
-
     private boolean confirm(String msg) {
-        return JOptionPane.showConfirmDialog(this, msg, "Confirmar", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION;
+        return JOptionPane.showConfirmDialog(this, msg, "Confirmar", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION;
     }
 
     private void warn(String msg) {
@@ -894,30 +886,32 @@ public class Main extends JFrame {
         bind(im, am, "edit", KeyStroke.getKeyStroke(KeyEvent.VK_E, InputEvent.CTRL_DOWN_MASK), e -> onEditar());
         bind(im, am, "save", KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK), e -> onGuardarCSV());
         bind(im, am, "open", KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK), e -> onAbrirCSV());
-        bind(im, am, "focusFilter", KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK), e -> txtFilter.requestFocusInWindow());
+        bind(im, am, "focusFilter", KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK),
+                e -> txtFilter.requestFocusInWindow());
         bind(im, am, "delete", KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), e -> onBorrar());
-// ---- ZOOM IN (varias combinaciones) ----
-// Ctrl + Shift + '='  (la manera más común para '+')
+        // ---- ZOOM IN (varias combinaciones) ----
+        // Ctrl + Shift + '=' (la manera más común para '+')
         bind(im, am, "zoomIn_eq_shift", KeyStroke.getKeyStroke(
-                        KeyEvent.VK_EQUALS, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK),
+                KeyEvent.VK_EQUALS, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK),
                 e -> zoomIn());
 
-// Ctrl + '='  (muchas apps aceptan esto como zoom in)
+        // Ctrl + '=' (muchas apps aceptan esto como zoom in)
         bind(im, am, "zoomIn_eq_plain", KeyStroke.getKeyStroke(
-                        KeyEvent.VK_EQUALS, InputEvent.CTRL_DOWN_MASK),
+                KeyEvent.VK_EQUALS, InputEvent.CTRL_DOWN_MASK),
                 e -> zoomIn());
 
-// Ctrl + ADD (teclado numérico '+')
+        // Ctrl + ADD (teclado numérico '+')
         bind(im, am, "zoomIn_numpad", KeyStroke.getKeyStroke(
-                        KeyEvent.VK_ADD, InputEvent.CTRL_DOWN_MASK),
+                KeyEvent.VK_ADD, InputEvent.CTRL_DOWN_MASK),
                 e -> zoomIn());
 
-// (Opcional) si tu JDK/teclado reporta VK_PLUS, bindea también:
+        // (Opcional) si tu JDK/teclado reporta VK_PLUS, bindea también:
         try {
             bind(im, am, "zoomIn_plus", KeyStroke.getKeyStroke(
-                            KeyEvent.class.getField("VK_PLUS").getInt(null), InputEvent.CTRL_DOWN_MASK),
+                    KeyEvent.class.getField("VK_PLUS").getInt(null), InputEvent.CTRL_DOWN_MASK),
                     e -> zoomIn());
-        } catch (Exception ignore) { /* VK_PLUS no existe en todos los JDKs */ }
+        } catch (Exception ignore) {
+            /* VK_PLUS no existe en todos los JDKs */ }
 
         // Ctrl + '-'
         bind(im, am, "zoomOut", KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, InputEvent.CTRL_DOWN_MASK), e -> zoomOut());
@@ -938,19 +932,22 @@ public class Main extends JFrame {
     // Fuente escalada según uiScale
     private Font scaledFont() {
         Font base = (lafBaseFont != null) ? lafBaseFont : UIManager.getFont("Label.font");
-        if (base == null) base = new JLabel().getFont();
+        if (base == null)
+            base = new JLabel().getFont();
         return base.deriveFont((float) (base.getSize2D() * uiScale));
     }
 
     // Aplica la fuente a todo un árbol de componentes (toolbar, contentPane, etc.)
     private void applyFontRecursively(Component c, Font f) {
-        if (c == null) return;
+        if (c == null)
+            return;
         c.setFont(f);
 
         // Ajustes especiales
         if (c instanceof JTable t) {
             JTableHeader h = t.getTableHeader();
-            if (h != null) h.setFont(f.deriveFont(Font.BOLD));
+            if (h != null)
+                h.setFont(f.deriveFont(Font.BOLD));
         }
 
         if (c instanceof Container cont) {
@@ -960,21 +957,24 @@ public class Main extends JFrame {
         }
     }
 
-    // Aplica la fuente a menús/menubar (los menús no son hijos “normales” del contenedor)
+    // Aplica la fuente a menús/menubar (los menús no son hijos “normales” del
+    // contenedor)
     private void applyFontToMenuBar(JMenuBar mb, Font f) {
-        if (mb == null) return;
+        if (mb == null)
+            return;
         mb.setFont(f);
         for (int i = 0; i < mb.getMenuCount(); i++) {
             JMenu m = mb.getMenu(i);
-            if (m == null) continue;
+            if (m == null)
+                continue;
             m.setFont(f);
             for (int j = 0; j < m.getItemCount(); j++) {
                 JMenuItem it = m.getItem(j);
-                if (it != null) it.setFont(f);
+                if (it != null)
+                    it.setFont(f);
             }
         }
     }
-
 
     // ======== Arranque ========
     public static void main(String[] args) {
