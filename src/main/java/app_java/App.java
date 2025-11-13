@@ -3,6 +3,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import javax.swing.SwingUtilities;
 import com.ivhanfc.scannerjs.app_java.UI;
+import com.ivhanfc.scannerjs.app_java.Database;
+
 
 
 @SpringBootApplication

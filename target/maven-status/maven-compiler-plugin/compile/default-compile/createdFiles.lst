@@ -11,6 +11,7 @@ com/ivhanfc/scannerjs/app_java/UI$InventarioModel.class
 com/ivhanfc/scannerjs/app_java/Server.class
 com/ivhanfc/scannerjs/app_java/UI$Producto.class
 com/ivhanfc/scannerjs/app_java/UI$3.class
+com/ivhanfc/scannerjs/app_java/Database.class
 com/ivhanfc/scannerjs/app_java/UI$LightCellRenderer.class
 com/ivhanfc/scannerjs/app_java/UI$SimpleDocumentListener.class
 com/ivhanfc/scannerjs/app_java/UI$DarkCellRenderer.class
