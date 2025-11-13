@@ -1,3 +1,5 @@
+package com.ivhanfc.scannerjs.app_java;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
@@ -20,7 +22,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
-
 /**
  * Gestión de Inventario • Neo Swing (con Theme Toggle Light/Dark)
  * - Arranca en LIGHT por defecto
@@ -28,7 +29,7 @@ import java.util.regex.Pattern;
  * - Renderers duales para tabla/header
  * - Paletas centralizadas
  */
-public class Main extends JFrame {
+public class UI extends JFrame {
 
     // ======== Modelo de dominio ========
     static class Producto {
@@ -197,7 +198,7 @@ public class Main extends JFrame {
     private static final Dimension SEP_BASE_SIZE = new Dimension(12, 28);
     private static final Insets BUTTON_BASE_PADDING = new Insets(6, 10, 6, 10);
 
-    public Main() {
+    public UI() {
         super("Gestión de Inventario • Neo Swing");
 
         lafBaseFont = UIManager.getFont("Label.font");
@@ -823,7 +824,7 @@ public class Main extends JFrame {
         }
     }
 
-    private static void installNimbusDarkish() {
+    public static void installNimbusDarkish() {
         installNimbusBase();
         UIManager.put("control", new Color(36, 38, 45));
         UIManager.put("info", new Color(36, 38, 45));
@@ -1182,8 +1183,4 @@ public class Main extends JFrame {
         }
     }
 
-    // ======== Main ========
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new Main().setVisible(true));
-    }
-}
+}   
