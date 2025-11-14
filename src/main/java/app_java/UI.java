@@ -1,4 +1,5 @@
-package com.ivhanfc.scannerjs.app_java;
+package app_java;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
@@ -27,6 +28,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+
 /**
  * Gestión de Inventario • Neo Swing (con Theme Toggle Light/Dark)
  * - Arranca en LIGHT por defecto
@@ -37,7 +39,7 @@ import java.sql.SQLException;
 public class UI extends JFrame {
 
     // ======== Modelo de dominio ========
-   
+
     static class Producto {
         final int id;
         String nombre;
@@ -58,31 +60,30 @@ public class UI extends JFrame {
         private final Class<?>[] types = { Integer.class, String.class, Integer.class, BigDecimal.class,
                 BigDecimal.class };
         private final List<Producto> data = ProductListSQL();
-        
-         private List<Producto> ProductListSQL() {
-        List<Producto> lista = new ArrayList<>();
 
-Database.CrearDB();
-   
-        try (ResultSet rs = Database.showProducts()) {
-            
-            while (rs.next()) {
-                Producto p = new Producto(
-                    rs.getInt("ID"),
-                    rs.getString("NOMBRE"),
-                    rs.getInt("CANTIDAD"),
-                    BigDecimal.valueOf(rs.getDouble("PRECIO")) // usa BigDecimal
-                );
-                lista.add(p);
+        private List<Producto> ProductListSQL() {
+            List<Producto> lista = new ArrayList<>();
+
+            Database.CrearDB();
+
+            try (ResultSet rs = Database.showProducts()) {
+
+                while (rs.next()) {
+                    Producto p = new Producto(
+                            rs.getInt("ID"),
+                            rs.getString("NOMBRE"),
+                            rs.getInt("CANTIDAD"),
+                            BigDecimal.valueOf(rs.getDouble("PRECIO")) // usa BigDecimal
+                    );
+                    lista.add(p);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+
+            return lista;
         }
 
-        return lista;
-    }
-        
-        
         @Override
         public int getRowCount() {
             return data.size();
@@ -125,7 +126,6 @@ Database.CrearDB();
             return data.get(row);
         }
 
-        
         public void setAll(List<Producto> list) {
             data.clear();
             data.addAll(list);
@@ -136,8 +136,8 @@ Database.CrearDB();
             data.add(p);
             int idx = data.size() - 1;
             fireTableRowsInserted(idx, idx);
-            double doubleprecio = p.precio.doubleValue(); //convierte bigdecimal a double
-                Database.insertProduct(p.nombre, p.cantidad, doubleprecio);
+            double doubleprecio = p.precio.doubleValue(); // convierte bigdecimal a double
+            Database.insertProduct(p.nombre, p.cantidad, doubleprecio);
         }
 
         public void update(int row, Producto p) {
@@ -146,19 +146,17 @@ Database.CrearDB();
         }
 
         public void remove(int row) {
-                var p = data.get(row);
-                Database.DeleteProduct(p.id);
+            var p = data.get(row);
+            Database.DeleteProduct(p.id);
 
             data.remove(row);
             fireTableRowsDeleted(row, row);
         }
 
         public List<Producto> all() {
-       return data;
+            return data;
         }
     }
-   
-
 
     // ======== Estado/UI ========
     private final InventarioModel model = new InventarioModel();
@@ -381,7 +379,7 @@ Database.CrearDB();
         // ======== Atajos ========
         installShortcuts();
 
-          updateTotals();
+        updateTotals();
 
         // THEME: aplicar tema inicial (CLARO)
         applyTheme(Theme.LIGHT);
@@ -1217,4 +1215,4 @@ Database.CrearDB();
         }
     }
 
-}   
+}
