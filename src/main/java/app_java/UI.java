@@ -29,13 +29,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-/**
- * Gestión de Inventario • Neo Swing (con Theme Toggle Light/Dark)
- * - Arranca en LIGHT por defecto
- * - Botón de tema en Toolbar
- * - Renderers duales para tabla/header
- * - Paletas centralizadas
- */
 public class UI extends JFrame {
 
     // ======== Modelo de dominio ========
@@ -1223,5 +1216,6 @@ public class UI extends JFrame {
             update(e);
         }
     }
+
 
 }
