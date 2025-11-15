@@ -1,4 +1,5 @@
-package com.ivhanfc.scannerjs.app_java;
+package app_java;
+
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,7 +12,7 @@ import java.util.Map;
 @RequestMapping("/api")
 @CrossOrigin(origins = "*") // permite cualquier origen
 public class JsonController {
-     @PostMapping("/id")
+    @PostMapping("/id")
     public String recibirId(@RequestBody Map<String, Object> body) {
         System.out.println("ID recibido: " + body.get("id"));
         return "ID recibido correctamente: " + body.get("id");
