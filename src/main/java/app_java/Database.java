@@ -1,6 +1,6 @@
 package app_java;
 
-import java.lang.Thread.State;
+// import java.lang.Thread.State;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -35,19 +35,34 @@ public class Database {
 
     }
 
-    public static void insertProduct(String nombre, int cantidad, double precio) {
-        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:inventario.db")) {
-            String sql = "INSERT INTO productos(nombre, cantidad, precio) VALUES (?,?,?)";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
+    public static int insertProduct(String nombre, int cantidad, double precio) {
+        System.out.println("insertProduct llamado con: " + nombre);
+
+        // 🔍 Imprimir trazas para ver quién lo llama
+        new Exception("TRACE insertProduct").printStackTrace(System.out);
+
+        String sql = "INSERT INTO productos(nombre, cantidad, precio) VALUES (?,?,?)";
+
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:inventario.db");
+                PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
             pstmt.setString(1, nombre);
             pstmt.setInt(2, cantidad);
             pstmt.setDouble(3, precio);
+
             pstmt.executeUpdate();
             System.out.println("Datos insertados correctamente");
+
+            try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return rs.getInt(1); // ID generado por SQLite
+                }
+            }
         } catch (SQLException e) {
             System.out.println("Error al insertar el producto: " + e.getMessage());
-
         }
+
+        return -1;
     }
 
     public static void DeleteProduct(int id) {

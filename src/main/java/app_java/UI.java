@@ -136,8 +136,6 @@ public class UI extends JFrame {
             data.add(p);
             int idx = data.size() - 1;
             fireTableRowsInserted(idx, idx);
-            double doubleprecio = p.precio.doubleValue(); // convierte bigdecimal a double
-            Database.insertProduct(p.nombre, p.cantidad, doubleprecio);
         }
 
         public void update(int row, Producto p) {
@@ -165,7 +163,6 @@ public class UI extends JFrame {
     private final JTextField txtFilter = new JTextField(18);
     private final JLabel lblTotal = new JLabel("Items: 0 | Total: $0.00");
     private final DecimalFormat moneyFmt = new DecimalFormat("#,##0.00");
-    private static final AtomicInteger NEXT_ID = new AtomicInteger(1);
     private double uiScale = 1.0;
     private Font lafBaseFont;
     private JPanel toolbar;
@@ -408,7 +405,6 @@ public class UI extends JFrame {
         miNuevo.addActionListener(e -> {
             if (confirm("Esto limpiará el inventario actual. ¿Continuar?")) {
                 model.setAll(new ArrayList<>());
-                NEXT_ID.set(1);
                 updateTotals();
             }
         });
@@ -464,9 +460,23 @@ public class UI extends JFrame {
     private void onCrear() {
         var p = showProductoDialog(null);
         if (p != null) {
-            model.add(p);
-            selectLastRow();
-            updateTotals();
+            // 1) Insertar en BD
+            int idGenerado = Database.insertProduct(
+                    p.nombre,
+                    p.cantidad,
+                    p.precio.doubleValue());
+
+            if (idGenerado != -1) {
+                // 2) Producto con ID real
+                var conIdReal = new Producto(idGenerado, p.nombre, p.cantidad, p.precio);
+
+                // 3) Solo agregar al modelo
+                model.add(conIdReal);
+                selectLastRow();
+                updateTotals();
+            } else {
+                error("No se pudo insertar el producto en la base de datos.");
+            }
         }
     }
 
@@ -569,7 +579,6 @@ public class UI extends JFrame {
                     maxId = Math.max(maxId, id);
                 }
                 model.setAll(list);
-                NEXT_ID.set(maxId + 1);
                 updateTotals();
                 info("Cargado desde:\n" + f.getAbsolutePath());
             } catch (Exception ex) {
@@ -696,7 +705,7 @@ public class UI extends JFrame {
             }
 
             if (base == null)
-                return new Producto(NEXT_ID.getAndIncrement(), nombre, cantidad, precio);
+                return new Producto(0, nombre, cantidad, precio);
             else
                 return new Producto(base.id, nombre, cantidad, precio);
         }
