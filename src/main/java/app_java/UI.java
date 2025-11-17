@@ -1,4 +1,4 @@
-package com.ivhanfc.scannerjs.app_java;
+package app_java;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -22,16 +22,17 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
-/**
- * Gestión de Inventario • Neo Swing (con Theme Toggle Light/Dark)
- * - Arranca en LIGHT por defecto
- * - Botón de tema en Toolbar
- * - Renderers duales para tabla/header
- * - Paletas centralizadas
- */
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 public class UI extends JFrame {
 
     // ======== Modelo de dominio ========
+
     static class Producto {
         final int id;
         String nombre;
@@ -51,7 +52,30 @@ public class UI extends JFrame {
         private final String[] cols = { "ID", "Nombre", "Cantidad", "Precio", "Subtotal" };
         private final Class<?>[] types = { Integer.class, String.class, Integer.class, BigDecimal.class,
                 BigDecimal.class };
-        private final List<Producto> data = new ArrayList<>();
+        private final List<Producto> data = ProductListSQL();
+
+        private List<Producto> ProductListSQL() {
+            List<Producto> lista = new ArrayList<>();
+
+            Database.CrearDB();
+
+            try (ResultSet rs = Database.showProducts()) {
+
+                while (rs.next()) {
+                    Producto p = new Producto(
+                            rs.getInt("ID"),
+                            rs.getString("NOMBRE"),
+                            rs.getInt("CANTIDAD"),
+                            BigDecimal.valueOf(rs.getDouble("PRECIO")) // usa BigDecimal
+                    );
+                    lista.add(p);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            return lista;
+        }
 
         @Override
         public int getRowCount() {
@@ -113,6 +137,9 @@ public class UI extends JFrame {
         }
 
         public void remove(int row) {
+            var p = data.get(row);
+            Database.DeleteProduct(p.id);
+
             data.remove(row);
             fireTableRowsDeleted(row, row);
         }
@@ -129,7 +156,6 @@ public class UI extends JFrame {
     private final JTextField txtFilter = new JTextField(18);
     private final JLabel lblTotal = new JLabel("Items: 0 | Total: $0.00");
     private final DecimalFormat moneyFmt = new DecimalFormat("#,##0.00");
-    private static final AtomicInteger NEXT_ID = new AtomicInteger(1);
     private double uiScale = 1.0;
     private Font lafBaseFont;
     private JPanel toolbar;
@@ -343,10 +369,6 @@ public class UI extends JFrame {
         // ======== Atajos ========
         installShortcuts();
 
-        // ======== Datos de muestra ========
-        model.add(new Producto(NEXT_ID.getAndIncrement(), "Teclado MK.II", 10, bd("19.99")));
-        model.add(new Producto(NEXT_ID.getAndIncrement(), "Mouse Photon", 25, bd("12.50")));
-        model.add(new Producto(NEXT_ID.getAndIncrement(), "Monitor Quantum 27\"", 5, bd("299.00")));
         updateTotals();
 
         // THEME: aplicar tema inicial (CLARO)
@@ -376,7 +398,6 @@ public class UI extends JFrame {
         miNuevo.addActionListener(e -> {
             if (confirm("Esto limpiará el inventario actual. ¿Continuar?")) {
                 model.setAll(new ArrayList<>());
-                NEXT_ID.set(1);
                 updateTotals();
             }
         });
@@ -432,9 +453,23 @@ public class UI extends JFrame {
     private void onCrear() {
         var p = showProductoDialog(null);
         if (p != null) {
-            model.add(p);
-            selectLastRow();
-            updateTotals();
+            // 1) Insertar en BD
+            int idGenerado = Database.insertProduct(
+                    p.nombre,
+                    p.cantidad,
+                    p.precio.doubleValue());
+
+            if (idGenerado != -1) {
+                // 2) Producto con ID real
+                var conIdReal = new Producto(idGenerado, p.nombre, p.cantidad, p.precio);
+
+                // 3) Solo agregar al modelo
+                model.add(conIdReal);
+                selectLastRow();
+                updateTotals();
+            } else {
+                error("No se pudo insertar el producto en la base de datos.");
+            }
         }
     }
 
@@ -537,7 +572,6 @@ public class UI extends JFrame {
                     maxId = Math.max(maxId, id);
                 }
                 model.setAll(list);
-                NEXT_ID.set(maxId + 1);
                 updateTotals();
                 info("Cargado desde:\n" + f.getAbsolutePath());
             } catch (Exception ex) {
@@ -664,7 +698,7 @@ public class UI extends JFrame {
             }
 
             if (base == null)
-                return new Producto(NEXT_ID.getAndIncrement(), nombre, cantidad, precio);
+                return new Producto(0, nombre, cantidad, precio);
             else
                 return new Producto(base.id, nombre, cantidad, precio);
         }
@@ -1183,4 +1217,6 @@ public class UI extends JFrame {
         }
     }
 
-}   
+
+}
+
