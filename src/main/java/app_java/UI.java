@@ -397,10 +397,15 @@ public class UI extends JFrame {
 
         miNuevo.addActionListener(e -> {
             if (confirm("Esto limpiará el inventario actual. ¿Continuar?")) {
+                // 1) Limpiar el modelo (tabla en memoria)
                 model.setAll(new ArrayList<>());
                 updateTotals();
+
+                // 2) Limpiar también la base de datos SQLite
+                Database.clearProducts();
             }
         });
+
         miAbrir.addActionListener(e -> onAbrirCSV());
         miGuardar.addActionListener(e -> onGuardarCSV());
         miSalir.addActionListener(e -> dispose());
@@ -479,11 +484,23 @@ public class UI extends JFrame {
             warn("Selecciona un producto para editar.");
             return;
         }
+
         int modelRow = table.convertRowIndexToModel(row);
-        var base = model.get(modelRow);
+        var base = model.get(modelRow); // Producto actual (con ID)
+
         var p = showProductoDialog(base);
         if (p != null) {
-            model.update(modelRow, p);
+            // 1) Actualizar en base de datos usando el ID existente
+            Database.updateProduct(
+                    base.id,
+                    p.nombre,
+                    p.cantidad,
+                    p.precio.doubleValue());
+
+            // 2) Mantener el mismo ID en el modelo
+            var actualizado = new Producto(base.id, p.nombre, p.cantidad, p.precio);
+            model.update(modelRow, actualizado);
+
             updateTotals();
         }
     }
@@ -540,12 +557,43 @@ public class UI extends JFrame {
             try (var out = new PrintWriter(new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8))) {
                 out.println("id,nombre,cantidad,precio");
                 for (var p : model.all()) {
-                    out.printf("%d,%s,%d,%s%n", p.id, escapeCsv(p.nombre), p.cantidad, p.precio);
+                    out.printf("%d,%s,%d,%s%n",
+                            p.id,
+                            escapeCsv(p.nombre),
+                            p.cantidad,
+                            p.precio);
                 }
                 info("Guardado en:\n" + f.getAbsolutePath());
+
+                // Luego de guardar el CSV, sincronizamos SQLite con el modelo/CSV. ATT tu compi
+                // el BOR
+                syncModelToDatabase();
+
             } catch (IOException ex) {
                 error("No se pudo guardar:\n" + ex.getMessage());
             }
+        }
+    }
+
+    // Sincronizar todo el modelo con la base de datos
+    private void syncModelToDatabase() {
+        try {
+            // 1) Vaciar la tabla en la base de datos
+            Database.clearProducts();
+
+            // 2) Insertar de nuevo todo lo que hay en el modelo
+            for (var p : model.all()) {
+                Database.insertProductWithId(
+                        p.id,
+                        p.nombre,
+                        p.cantidad,
+                        p.precio.doubleValue());
+            }
+
+            System.out.println("Sincronización modelo → SQLite completada.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            error("Error al sincronizar con la base de datos:\n" + e.getMessage());
         }
     }
 
@@ -571,9 +619,14 @@ public class UI extends JFrame {
                     list.add(new Producto(id, nombre, cantidad, precio));
                     maxId = Math.max(maxId, id);
                 }
+
                 model.setAll(list);
                 updateTotals();
                 info("Cargado desde:\n" + f.getAbsolutePath());
+
+                // Despues de cargar desde CSV, hacemos que SQLite quede igual que el archivo
+                syncModelToDatabase();
+
             } catch (Exception ex) {
                 error("No se pudo abrir:\n" + ex.getMessage());
             }
@@ -630,7 +683,7 @@ public class UI extends JFrame {
         return out.toArray(String[]::new);
     }
 
-    // ======== Diálogo crear/editar ========
+    // ======== Dialog crear/editar ========
     private Producto showProductoDialog(Producto base) {
         var txtNombre = new JTextField(22);
         var spCantidad = new JSpinner(
@@ -786,7 +839,7 @@ public class UI extends JFrame {
                         (int) Math.round(base.bottom * uiScale),
                         (int) Math.round(base.right * uiScale));
                 // reconstruye el CompoundBorder con inner padding escalado
-                // color de borde según tema actual
+                // color de borde segun tema actual
                 Color border = (currentTheme == Theme.DARK) ? PALETTE_DARK.border : PALETTE_LIGHT.border;
                 b.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(border),
@@ -802,7 +855,7 @@ public class UI extends JFrame {
             }
         }
 
-        // Reescala el campo de búsqueda
+        // Reescala el campo de busqueda
         if (filterBaseSize != null) {
             txtFilter.setPreferredSize(new Dimension(
                     (int) Math.round(filterBaseSize.width * uiScale),
@@ -1217,6 +1270,4 @@ public class UI extends JFrame {
         }
     }
 
-
 }
-
