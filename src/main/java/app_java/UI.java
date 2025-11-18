@@ -202,12 +202,12 @@ public class UI extends JFrame {
     private Theme currentTheme = Theme.LIGHT; // arranca en CLARO
     private final Palette PALETTE_DARK = new Palette(
             new Color(26, 27, 30), new Color(230, 235, 240), // bg, fg
-            new Color(26, 27, 30), new Color(26, 27, 30), // toolbar bg, status bg
+            new Color(40, 42, 48), new Color(26, 27, 30), // toolbar bg, status bg
             new Color(210, 215, 220), // label fg
             new Color(44, 46, 52), new Color(230, 235, 240), // btn bg/fg
             new Color(56, 58, 66), new Color(70, 75, 85), // btn hover, border
             new Color(30, 32, 38), new Color(34, 36, 42), // table even/odd
-            new Color(24, 26, 32), new Color(196, 200, 208), // table header bg/fg
+            new Color(40, 42, 48), new Color(196, 200, 208), // table header bg/fg
             new Color(55, 55, 60), new Color(230, 235, 240) // field bg/fg
     );
     private final Palette PALETTE_LIGHT = new Palette(
@@ -1030,22 +1030,51 @@ public class UI extends JFrame {
     private void applyTheme(Theme theme) {
         this.currentTheme = theme;
 
-        // 1) Look&Feel base + overrides
+        // 1) Look&Feel base
         if (theme == Theme.DARK)
             installNimbusDarkish();
         else
             installNimbusLightish();
 
-        // 2) Colores de contenedores principales
+        // 2) Refrescar UI para que Nimbus aplique sus defaults
+        SwingUtilities.updateComponentTreeUI(this);
+
+        // 3) Ahora aplicamos NUESTRA paleta por encima del LAF
         var pal = (theme == Theme.DARK) ? PALETTE_DARK : PALETTE_LIGHT;
+
+        // Contenedor principal
         getContentPane().setBackground(pal.bg);
+
+        // Toolbar
         if (toolbar != null)
             toolbar.setBackground(pal.toolbarBg);
+
+        // Status
         lblTotal.setForeground(pal.fg);
         if (status != null)
             status.setBackground(pal.statusBg);
 
-        // 3) Tabla: renderers y header según tema
+        // MENU BAR (nav superior) – aquí es donde arreglamos el problema
+        JMenuBar menuBar = getJMenuBar();
+        if (menuBar != null) {
+            menuBar.setOpaque(true);
+
+            // FULL blanco en modo claro, y toolbarBg en oscuro
+            Color navBg = (theme == Theme.LIGHT) ? Color.WHITE : pal.toolbarBg;
+
+            menuBar.setBackground(navBg);
+            menuBar.setForeground(pal.fg);
+
+            for (MenuElement me : menuBar.getSubElements()) {
+                if (me instanceof JMenu m) {
+                    m.setOpaque(true);
+                    m.setBackground(navBg);
+                    m.setForeground(pal.fg);
+                }
+            }
+        }
+
+        // Tabla: renderers y header según tema
         TableCellRenderer cellR = (theme == Theme.DARK)
                 ? new DarkCellRenderer()
                 : new LightCellRenderer();
@@ -1056,32 +1085,49 @@ public class UI extends JFrame {
         table.setDefaultRenderer(Integer.class, cellR);
         table.setDefaultRenderer(BigDecimal.class, cellR);
 
-        // Colores base/selección de la tabla
         table.setBackground(pal.bg);
         table.setForeground(pal.fg);
         table.setGridColor(pal.border);
         table.setSelectionBackground(theme == Theme.DARK ? new Color(70, 75, 85) : new Color(200, 220, 255));
         table.setSelectionForeground(theme == Theme.DARK ? pal.fg : Color.BLACK);
 
-        // Header
+        // HEADER: renderer que usa SIEMPRE la paleta actual
         JTableHeader header = table.getTableHeader();
-        header.setDefaultRenderer(theme == Theme.DARK ? new DarkHeaderRenderer(table) : new LightHeaderRenderer(table));
-        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 36));
 
-        // Viewport del JScrollPane (para que el “fondo entre filas” no quede claro)
+        header.setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                    boolean isSelected, boolean hasFocus,
+                    int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setHorizontalAlignment(CENTER);
+                setOpaque(true);
+                setBackground(pal.tableHeaderBg);
+                setForeground(pal.tableHeaderFg);
+                setBorder(BorderFactory.createMatteBorder(0, 0, 1, 1, pal.border));
+                return c;
+            }
+        });
+
+        header.setOpaque(true);
+        header.setBackground(pal.tableHeaderBg);
+        header.setForeground(pal.tableHeaderFg);
+        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 36));
+        header.repaint();
+
+        // Viewport del JScrollPane
         Container p = table.getParent();
         if (p != null && p.getParent() instanceof JScrollPane sp) {
             sp.getViewport().setBackground(pal.bg);
             sp.setBackground(pal.bg);
         }
 
-        // 4) Repintar todos los componentes (fondo/primer plano/fields/botones/combos)
+        // Aplicar paleta a todo el árbol de componentes (excepto menu bar)
         applyPaletteToTree(getContentPane(), pal);
 
+        // Reajustar toolbar (padding/bordes) según escala y tema
         scaleToolbarUI();
 
-        // 5) Refrescar UI
-        SwingUtilities.updateComponentTreeUI(this);
         revalidate();
         repaint();
     }
