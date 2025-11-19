@@ -1,4 +1,4 @@
-package com.ivhanfc.scannerjs.app_java;
+package app_java;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -22,16 +22,17 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
-/**
- * Gestión de Inventario • Neo Swing (con Theme Toggle Light/Dark)
- * - Arranca en LIGHT por defecto
- * - Botón de tema en Toolbar
- * - Renderers duales para tabla/header
- * - Paletas centralizadas
- */
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 public class UI extends JFrame {
 
     // ======== Modelo de dominio ========
+
     static class Producto {
         final int id;
         String nombre;
@@ -51,7 +52,30 @@ public class UI extends JFrame {
         private final String[] cols = { "ID", "Nombre", "Cantidad", "Precio", "Subtotal" };
         private final Class<?>[] types = { Integer.class, String.class, Integer.class, BigDecimal.class,
                 BigDecimal.class };
-        private final List<Producto> data = new ArrayList<>();
+        private final List<Producto> data = ProductListSQL();
+
+        private List<Producto> ProductListSQL() {
+            List<Producto> lista = new ArrayList<>();
+
+            Database.CrearDB();
+
+            try (ResultSet rs = Database.showProducts()) {
+
+                while (rs.next()) {
+                    Producto p = new Producto(
+                            rs.getInt("ID"),
+                            rs.getString("NOMBRE"),
+                            rs.getInt("CANTIDAD"),
+                            BigDecimal.valueOf(rs.getDouble("PRECIO")) // usa BigDecimal
+                    );
+                    lista.add(p);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            return lista;
+        }
 
         @Override
         public int getRowCount() {
@@ -113,6 +137,9 @@ public class UI extends JFrame {
         }
 
         public void remove(int row) {
+            var p = data.get(row);
+            Database.DeleteProduct(p.id);
+
             data.remove(row);
             fireTableRowsDeleted(row, row);
         }
@@ -129,7 +156,6 @@ public class UI extends JFrame {
     private final JTextField txtFilter = new JTextField(18);
     private final JLabel lblTotal = new JLabel("Items: 0 | Total: $0.00");
     private final DecimalFormat moneyFmt = new DecimalFormat("#,##0.00");
-    private static final AtomicInteger NEXT_ID = new AtomicInteger(1);
     private double uiScale = 1.0;
     private Font lafBaseFont;
     private JPanel toolbar;
@@ -176,12 +202,12 @@ public class UI extends JFrame {
     private Theme currentTheme = Theme.LIGHT; // arranca en CLARO
     private final Palette PALETTE_DARK = new Palette(
             new Color(26, 27, 30), new Color(230, 235, 240), // bg, fg
-            new Color(26, 27, 30), new Color(26, 27, 30), // toolbar bg, status bg
+            new Color(40, 42, 48), new Color(26, 27, 30), // toolbar bg, status bg
             new Color(210, 215, 220), // label fg
             new Color(44, 46, 52), new Color(230, 235, 240), // btn bg/fg
             new Color(56, 58, 66), new Color(70, 75, 85), // btn hover, border
             new Color(30, 32, 38), new Color(34, 36, 42), // table even/odd
-            new Color(24, 26, 32), new Color(196, 200, 208), // table header bg/fg
+            new Color(40, 42, 48), new Color(196, 200, 208), // table header bg/fg
             new Color(55, 55, 60), new Color(230, 235, 240) // field bg/fg
     );
     private final Palette PALETTE_LIGHT = new Palette(
@@ -343,10 +369,6 @@ public class UI extends JFrame {
         // ======== Atajos ========
         installShortcuts();
 
-        // ======== Datos de muestra ========
-        model.add(new Producto(NEXT_ID.getAndIncrement(), "Teclado MK.II", 10, bd("19.99")));
-        model.add(new Producto(NEXT_ID.getAndIncrement(), "Mouse Photon", 25, bd("12.50")));
-        model.add(new Producto(NEXT_ID.getAndIncrement(), "Monitor Quantum 27\"", 5, bd("299.00")));
         updateTotals();
 
         // THEME: aplicar tema inicial (CLARO)
@@ -375,11 +397,15 @@ public class UI extends JFrame {
 
         miNuevo.addActionListener(e -> {
             if (confirm("Esto limpiará el inventario actual. ¿Continuar?")) {
+                // 1) Limpiar el modelo (tabla en memoria)
                 model.setAll(new ArrayList<>());
-                NEXT_ID.set(1);
                 updateTotals();
+
+                // 2) Limpiar también la base de datos SQLite
+                Database.clearProducts();
             }
         });
+
         miAbrir.addActionListener(e -> onAbrirCSV());
         miGuardar.addActionListener(e -> onGuardarCSV());
         miSalir.addActionListener(e -> dispose());
@@ -432,9 +458,23 @@ public class UI extends JFrame {
     private void onCrear() {
         var p = showProductoDialog(null);
         if (p != null) {
-            model.add(p);
-            selectLastRow();
-            updateTotals();
+            // 1) Insertar en BD
+            int idGenerado = Database.insertProduct(
+                    p.nombre,
+                    p.cantidad,
+                    p.precio.doubleValue());
+
+            if (idGenerado != -1) {
+                // 2) Producto con ID real
+                var conIdReal = new Producto(idGenerado, p.nombre, p.cantidad, p.precio);
+
+                // 3) Solo agregar al modelo
+                model.add(conIdReal);
+                selectLastRow();
+                updateTotals();
+            } else {
+                error("No se pudo insertar el producto en la base de datos.");
+            }
         }
     }
 
@@ -444,11 +484,23 @@ public class UI extends JFrame {
             warn("Selecciona un producto para editar.");
             return;
         }
+
         int modelRow = table.convertRowIndexToModel(row);
-        var base = model.get(modelRow);
+        var base = model.get(modelRow); // Producto actual (con ID)
+
         var p = showProductoDialog(base);
         if (p != null) {
-            model.update(modelRow, p);
+            // 1) Actualizar en base de datos usando el ID existente
+            Database.updateProduct(
+                    base.id,
+                    p.nombre,
+                    p.cantidad,
+                    p.precio.doubleValue());
+
+            // 2) Mantener el mismo ID en el modelo
+            var actualizado = new Producto(base.id, p.nombre, p.cantidad, p.precio);
+            model.update(modelRow, actualizado);
+
             updateTotals();
         }
     }
@@ -505,12 +557,43 @@ public class UI extends JFrame {
             try (var out = new PrintWriter(new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8))) {
                 out.println("id,nombre,cantidad,precio");
                 for (var p : model.all()) {
-                    out.printf("%d,%s,%d,%s%n", p.id, escapeCsv(p.nombre), p.cantidad, p.precio);
+                    out.printf("%d,%s,%d,%s%n",
+                            p.id,
+                            escapeCsv(p.nombre),
+                            p.cantidad,
+                            p.precio);
                 }
                 info("Guardado en:\n" + f.getAbsolutePath());
+
+                // Luego de guardar el CSV, sincronizamos SQLite con el modelo/CSV. ATT tu compi
+                // el BOR
+                syncModelToDatabase();
+
             } catch (IOException ex) {
                 error("No se pudo guardar:\n" + ex.getMessage());
             }
+        }
+    }
+
+    // Sincronizar todo el modelo con la base de datos
+    private void syncModelToDatabase() {
+        try {
+            // 1) Vaciar la tabla en la base de datos
+            Database.clearProducts();
+
+            // 2) Insertar de nuevo todo lo que hay en el modelo
+            for (var p : model.all()) {
+                Database.insertProductWithId(
+                        p.id,
+                        p.nombre,
+                        p.cantidad,
+                        p.precio.doubleValue());
+            }
+
+            System.out.println("Sincronización modelo → SQLite completada.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            error("Error al sincronizar con la base de datos:\n" + e.getMessage());
         }
     }
 
@@ -536,10 +619,14 @@ public class UI extends JFrame {
                     list.add(new Producto(id, nombre, cantidad, precio));
                     maxId = Math.max(maxId, id);
                 }
+
                 model.setAll(list);
-                NEXT_ID.set(maxId + 1);
                 updateTotals();
                 info("Cargado desde:\n" + f.getAbsolutePath());
+
+                // Despues de cargar desde CSV, hacemos que SQLite quede igual que el archivo
+                syncModelToDatabase();
+
             } catch (Exception ex) {
                 error("No se pudo abrir:\n" + ex.getMessage());
             }
@@ -596,7 +683,7 @@ public class UI extends JFrame {
         return out.toArray(String[]::new);
     }
 
-    // ======== Diálogo crear/editar ========
+    // ======== Dialog crear/editar ========
     private Producto showProductoDialog(Producto base) {
         var txtNombre = new JTextField(22);
         var spCantidad = new JSpinner(
@@ -664,7 +751,7 @@ public class UI extends JFrame {
             }
 
             if (base == null)
-                return new Producto(NEXT_ID.getAndIncrement(), nombre, cantidad, precio);
+                return new Producto(0, nombre, cantidad, precio);
             else
                 return new Producto(base.id, nombre, cantidad, precio);
         }
@@ -752,7 +839,7 @@ public class UI extends JFrame {
                         (int) Math.round(base.bottom * uiScale),
                         (int) Math.round(base.right * uiScale));
                 // reconstruye el CompoundBorder con inner padding escalado
-                // color de borde según tema actual
+                // color de borde segun tema actual
                 Color border = (currentTheme == Theme.DARK) ? PALETTE_DARK.border : PALETTE_LIGHT.border;
                 b.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(border),
@@ -768,7 +855,7 @@ public class UI extends JFrame {
             }
         }
 
-        // Reescala el campo de búsqueda
+        // Reescala el campo de busqueda
         if (filterBaseSize != null) {
             txtFilter.setPreferredSize(new Dimension(
                     (int) Math.round(filterBaseSize.width * uiScale),
@@ -943,22 +1030,51 @@ public class UI extends JFrame {
     private void applyTheme(Theme theme) {
         this.currentTheme = theme;
 
-        // 1) Look&Feel base + overrides
+        // 1) Look&Feel base
         if (theme == Theme.DARK)
             installNimbusDarkish();
         else
             installNimbusLightish();
 
-        // 2) Colores de contenedores principales
+        // 2) Refrescar UI para que Nimbus aplique sus defaults
+        SwingUtilities.updateComponentTreeUI(this);
+
+        // 3) Ahora aplicamos NUESTRA paleta por encima del LAF
         var pal = (theme == Theme.DARK) ? PALETTE_DARK : PALETTE_LIGHT;
+
+        // Contenedor principal
         getContentPane().setBackground(pal.bg);
+
+        // Toolbar
         if (toolbar != null)
             toolbar.setBackground(pal.toolbarBg);
+
+        // Status
         lblTotal.setForeground(pal.fg);
         if (status != null)
             status.setBackground(pal.statusBg);
 
-        // 3) Tabla: renderers y header según tema
+        // MENU BAR (nav superior) – aquí es donde arreglamos el problema
+        JMenuBar menuBar = getJMenuBar();
+        if (menuBar != null) {
+            menuBar.setOpaque(true);
+
+            // FULL blanco en modo claro, y toolbarBg en oscuro
+            Color navBg = (theme == Theme.LIGHT) ? Color.WHITE : pal.toolbarBg;
+
+            menuBar.setBackground(navBg);
+            menuBar.setForeground(pal.fg);
+
+            for (MenuElement me : menuBar.getSubElements()) {
+                if (me instanceof JMenu m) {
+                    m.setOpaque(true);
+                    m.setBackground(navBg);
+                    m.setForeground(pal.fg);
+                }
+            }
+        }
+
+        // Tabla: renderers y header según tema
         TableCellRenderer cellR = (theme == Theme.DARK)
                 ? new DarkCellRenderer()
                 : new LightCellRenderer();
@@ -969,32 +1085,49 @@ public class UI extends JFrame {
         table.setDefaultRenderer(Integer.class, cellR);
         table.setDefaultRenderer(BigDecimal.class, cellR);
 
-        // Colores base/selección de la tabla
         table.setBackground(pal.bg);
         table.setForeground(pal.fg);
         table.setGridColor(pal.border);
         table.setSelectionBackground(theme == Theme.DARK ? new Color(70, 75, 85) : new Color(200, 220, 255));
         table.setSelectionForeground(theme == Theme.DARK ? pal.fg : Color.BLACK);
 
-        // Header
+        // HEADER: renderer que usa SIEMPRE la paleta actual
         JTableHeader header = table.getTableHeader();
-        header.setDefaultRenderer(theme == Theme.DARK ? new DarkHeaderRenderer(table) : new LightHeaderRenderer(table));
-        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 36));
 
-        // Viewport del JScrollPane (para que el “fondo entre filas” no quede claro)
+        header.setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                    boolean isSelected, boolean hasFocus,
+                    int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setHorizontalAlignment(CENTER);
+                setOpaque(true);
+                setBackground(pal.tableHeaderBg);
+                setForeground(pal.tableHeaderFg);
+                setBorder(BorderFactory.createMatteBorder(0, 0, 1, 1, pal.border));
+                return c;
+            }
+        });
+
+        header.setOpaque(true);
+        header.setBackground(pal.tableHeaderBg);
+        header.setForeground(pal.tableHeaderFg);
+        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 36));
+        header.repaint();
+
+        // Viewport del JScrollPane
         Container p = table.getParent();
         if (p != null && p.getParent() instanceof JScrollPane sp) {
             sp.getViewport().setBackground(pal.bg);
             sp.setBackground(pal.bg);
         }
 
-        // 4) Repintar todos los componentes (fondo/primer plano/fields/botones/combos)
+        // Aplicar paleta a todo el árbol de componentes (excepto menu bar)
         applyPaletteToTree(getContentPane(), pal);
 
+        // Reajustar toolbar (padding/bordes) según escala y tema
         scaleToolbarUI();
 
-        // 5) Refrescar UI
-        SwingUtilities.updateComponentTreeUI(this);
         revalidate();
         repaint();
     }
@@ -1183,4 +1316,4 @@ public class UI extends JFrame {
         }
     }
 
-}   
+}

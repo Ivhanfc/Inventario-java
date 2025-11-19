@@ -33,6 +33,13 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+        <!-- Importacion de sqlite-->
+        <dependency>
+    <groupId>org.xerial</groupId>
+    <artifactId>sqlite-jdbc</artifactId>
+    <version>3.51.0.0</version>
+</dependency>
+
     </dependencies>
 
     <build>
