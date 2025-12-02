@@ -33,13 +33,14 @@ public class UI extends JFrame {
 
     // ======== Modelo de dominio ========
 
-    static class Producto {
-        final int id;
+    static class Producto { // producto es un objeto
+        final int id;// id para identificacion una del producto
         String nombre;
         int cantidad;
         BigDecimal precio; // usar BigDecimal para dinero
 
-        Producto(int id, String nombre, int cantidad, BigDecimal precio) {
+        Producto(int id, String nombre, int cantidad, BigDecimal precio) { // se crea un contructor para el objeto
+                                                                           // producto asi podemos instanciarlo
             this.id = id;
             this.nombre = nombre;
             this.cantidad = cantidad;
@@ -48,33 +49,36 @@ public class UI extends JFrame {
     }
 
     // ======== TableModel ========
-    static class InventarioModel extends AbstractTableModel {
-        private final String[] cols = { "ID", "Nombre", "Cantidad", "Precio", "Subtotal" };
-        private final Class<?>[] types = { Integer.class, String.class, Integer.class, BigDecimal.class,
+    static class InventarioModel extends AbstractTableModel { // le hereda toda la funcionalidad basica
+        private final String[] cols = { "ID", "Nombre", "Cantidad", "Precio", "Subtotal" }; // se crean las columnas
+        private final Class<?>[] types = { Integer.class, String.class, Integer.class, BigDecimal.class, // su tipo de
+                                                                                                         // dato
                 BigDecimal.class };
-        private final List<Producto> data = ProductListSQL();
+        private final List<Producto> data = ProductListSQL(); // que los datos de Producto sean los obtenidos de la base
+                                                              // de datos de sqlite
 
-        private List<Producto> ProductListSQL() {
+        private List<Producto> ProductListSQL() { // todos los componentes de la lista deben de ser Producto
             List<Producto> lista = new ArrayList<>();
 
-            Database.CrearDB();
+            Database.CrearDB(); // instanciamos la base de datos para que se inicialize
 
-            try (ResultSet rs = Database.showProducts()) {
+            try (ResultSet rs = Database.showProducts()) { // espera todos los datos de la base de datos para mostrarlos
 
                 while (rs.next()) {
                     Producto p = new Producto(
                             rs.getInt("ID"),
-                            rs.getString("NOMBRE"),
+                            rs.getString("NOMBRE"), // aqui respuesta del try son los datos de la base de datos para
+                                                    // agregarlo a los atributos de Producto
                             rs.getInt("CANTIDAD"),
                             BigDecimal.valueOf(rs.getDouble("PRECIO")) // usa BigDecimal
                     );
-                    lista.add(p);
+                    lista.add(p); // la lista agrega una instancia del objeto Producto por cada iteracion
                 }
-            } catch (Exception e) {
+            } catch (Exception e) { // en caso de que no exista manda error
                 e.printStackTrace();
             }
 
-            return lista;
+            return lista; // la funcion retorna la lista que va a mostar
         }
 
         @Override
@@ -116,55 +120,65 @@ public class UI extends JFrame {
         }
 
         public Producto get(int row) {
-            return data.get(row);
+            return data.get(row); // retorna los datos obtenidos del (get) de la fila
         }
 
-        public void setAll(List<Producto> list) {
-            data.clear();
-            data.addAll(list);
-            fireTableDataChanged();
+        public void setAll(List<Producto> list) { // metodo de importacion
+            data.clear(); // limpia los datos
+            data.addAll(list); // copia los datos del csv
+            fireTableDataChanged(); // le avisa a la tabla anterior que sus datos han cambiado
         }
 
-        public void add(Producto p) {
-            data.add(p);
-            int idx = data.size() - 1;
-            fireTableRowsInserted(idx, idx);
+        public void add(Producto p) { // funcion para agregar un producto
+            data.add(p); // los datos son pasados como parametros al objeto de Producto que su instancia
+                         // es p
+            int idx = data.size() - 1; // le dice en donde se agregara la nueva fila, 1 antes de la que a esta
+            fireTableRowsInserted(idx, idx); // le avisa a la tabla vieja que fue insertado una nueva fila
         }
 
-        public void update(int row, Producto p) {
-            data.set(row, p);
-            fireTableRowsUpdated(row, row);
+        public void update(int row, Producto p) { // esta funcion actuliza los datos ocupa los parametros de fila y
+                                                  // producto
+            data.set(row, p); // cambia los datos enviando de parametros la fila(row) y el producto
+            fireTableRowsUpdated(row, row); // le avisa a la tabla vieja que fila fue actualizada
         }
 
-        public void remove(int row) {
-            var p = data.get(row);
-            Database.DeleteProduct(p.id);
+        public void remove(int row) { // la funcion de borrar obtiene de parametro la fila
+            var p = data.get(row); // se obtiene losd atos de la fila
+            Database.DeleteProduct(p.id); // se borra el elemento de la base de datos basado en su id
 
-            data.remove(row);
+            data.remove(row); // aqui se borra la fila del lado del frontend.
             fireTableRowsDeleted(row, row);
         }
 
-        public List<Producto> all() {
+        public List<Producto> all() { // aqui se retorna todda la lista
             return data;
         }
     }
 
     // ======== Estado/UI ========
-    private final InventarioModel model = new InventarioModel();
-    private final JTable table = new JTable(model);
-    private TableRowSorter<TableModel> sorter;
-    private final JTextField txtFilter = new JTextField(18);
-    private final JLabel lblTotal = new JLabel("Items: 0 | Total: $0.00");
-    private final DecimalFormat moneyFmt = new DecimalFormat("#,##0.00");
-    private double uiScale = 1.0;
-    private Font lafBaseFont;
-    private JPanel toolbar;
-    private JPanel status;
-    private Dimension filterBaseSize;
+    private final InventarioModel model = new InventarioModel(); // Crea el modelo de datos del inventario.
+    private final JTable table = new JTable(model); // Crea una tabla grafica usando el model del inventario
+    private TableRowSorter<TableModel> sorter; // filtrado de filas, ordenar el contenido de la tabla.
+    private final JTextField txtFilter = new JTextField(18); // Input donde el usuario escribe para filtrar elementos.
+    private final JLabel lblTotal = new JLabel("Items: 0 | Total: $0.00"); // Etiqueta que muestra el total de articulos
+                                                                           // , moneasdas del inv.
+    private final DecimalFormat moneyFmt = new DecimalFormat("#,##0.00"); // Formateador numerico, muestra precios con
+                                                                          // formato de monedas(dos decimales, separador
+                                                                          // de miles)
+    private double uiScale = 1.0; // Almacena un factor de escalado de la interfaz (parra ampliar o reducir
+                                  // elementos graficos).
+    private Font lafBaseFont; // Guarda la fuente del Look and Feel, aplica cambios al tema o size de la UI.
+    private JPanel toolbar; // Estos dos son paneles de la parte superior (Toolbar) y de la (barra de
+                            // estado).
+    private JPanel status; //
+    private Dimension filterBaseSize; // Guarda el size original del campo de filtro, para recalcularlo al escalar la
+                                      // UI.
 
     // límites de validación
-    private static final int CANT_MIN = 0, CANT_MAX = 1_000_000;
-    private static final BigDecimal PRECIO_MIN = new BigDecimal("0.00");
+    private static final int CANT_MIN = 0, CANT_MAX = 1_000_000; // Define los limites validos para la cantidad de un
+                                                                 // articulo en inventario (0 a 1M)
+    private static final BigDecimal PRECIO_MIN = new BigDecimal("0.00"); // Definen los limites validos para el precio:
+                                                                         // 0.00 y 1,000,000,000
     private static final BigDecimal PRECIO_MAX = new BigDecimal("1000000000.00"); // 1e9
 
     // ======== THEME: enum + paletas ========
@@ -172,157 +186,167 @@ public class UI extends JFrame {
         DARK, LIGHT
     }
 
+    // Clase interna inmutable que agrupa todos los colores de un tema
     private static final class Palette {
         final Color bg, fg, toolbarBg, statusBg, labelFg,
                 btnBg, btnFg, btnHoverBg, border,
                 tableRowEven, tableRowOdd, tableHeaderBg, tableHeaderFg, fieldBg, fieldFg;
 
+        // Constructor: recibe todos los colores del tema y los asigna
+        // (Color es la clase estandar de Java (java.awt.Color)) RGB..
         Palette(Color bg, Color fg, Color toolbarBg, Color statusBg, Color labelFg,
                 Color btnBg, Color btnFg, Color btnHoverBg, Color border,
                 Color tableRowEven, Color tableRowOdd, Color tableHeaderBg, Color tableHeaderFg,
                 Color fieldBg, Color fieldFg) {
-            this.bg = bg;
-            this.fg = fg;
-            this.toolbarBg = toolbarBg;
-            this.statusBg = statusBg;
-            this.labelFg = labelFg;
-            this.btnBg = btnBg;
-            this.btnFg = btnFg;
-            this.btnHoverBg = btnHoverBg;
-            this.border = border;
-            this.tableRowEven = tableRowEven;
-            this.tableRowOdd = tableRowOdd;
-            this.tableHeaderBg = tableHeaderBg;
-            this.tableHeaderFg = tableHeaderFg;
-            this.fieldBg = fieldBg;
-            this.fieldFg = fieldFg;
+            this.bg = bg; // Color de fondo general
+            this.fg = fg; // Color de texto general
+            this.toolbarBg = toolbarBg; // Fondo de la toolbar
+            this.statusBg = statusBg; // Fondo de la barra de estado
+            this.labelFg = labelFg; // Color de texto de etiquetas
+            this.btnBg = btnBg; // Fondo de botones
+            this.btnFg = btnFg; // Texto de botones
+            this.btnHoverBg = btnHoverBg; // Fondo de botón al pasar el mouse
+            this.border = border; // Color de bordes
+            this.tableRowEven = tableRowEven; // Fondo filas pares de la tabla
+            this.tableRowOdd = tableRowOdd; // Fondo filas impares de la tabla
+            this.tableHeaderBg = tableHeaderBg; // Fondo del encabezado de la tabla
+            this.tableHeaderFg = tableHeaderFg; // Texto del encabezado de la tabla
+            this.fieldBg = fieldBg; // Fondo de campos de texto
+            this.fieldFg = fieldFg; // Texto de campos de texto
         }
     }
 
-    private Theme currentTheme = Theme.LIGHT; // arranca en CLARO
+    private Theme currentTheme = Theme.LIGHT; // Tema actual (inicia en modo claro)
+
     private final Palette PALETTE_DARK = new Palette(
             new Color(26, 27, 30), new Color(230, 235, 240), // bg, fg
             new Color(40, 42, 48), new Color(26, 27, 30), // toolbar bg, status bg
             new Color(210, 215, 220), // label fg
             new Color(44, 46, 52), new Color(230, 235, 240), // btn bg/fg
             new Color(56, 58, 66), new Color(70, 75, 85), // btn hover, border
-            new Color(30, 32, 38), new Color(34, 36, 42), // table even/odd
-            new Color(40, 42, 48), new Color(196, 200, 208), // table header bg/fg
-            new Color(55, 55, 60), new Color(230, 235, 240) // field bg/fg
+            new Color(30, 32, 38), new Color(34, 36, 42), // filas pares/impares tabla
+            new Color(40, 42, 48), new Color(196, 200, 208), // header tabla bg/fg
+            new Color(55, 55, 60), new Color(230, 235, 240) // campos texto bg/fg
     );
-    private final Palette PALETTE_LIGHT = new Palette(
-            Color.WHITE, Color.BLACK,
-            new Color(245, 245, 247), new Color(245, 245, 247),
-            new Color(30, 30, 30),
-            new Color(230, 230, 230), Color.BLACK,
-            new Color(210, 210, 210), new Color(200, 200, 200),
-            new Color(250, 250, 250), new Color(242, 242, 242),
-            new Color(240, 240, 240), new Color(50, 50, 50),
-            Color.WHITE, Color.BLACK);
 
-    // ======== tamaños base Toolbar/Buttons para zoom ========
+    // Paleta de colores para el tema claro
+    private final Palette PALETTE_LIGHT = new Palette(
+            Color.WHITE, Color.BLACK, // bg, fg
+            new Color(245, 245, 247), new Color(245, 245, 247), // toolbar bg, status bg
+            new Color(30, 30, 30), // label fg
+            new Color(230, 230, 230), Color.BLACK, // btn bg/fg
+            new Color(210, 210, 210), new Color(200, 200, 200), // btn hover, border
+            new Color(250, 250, 250), new Color(242, 242, 242), // filas tabla
+            new Color(240, 240, 240), new Color(50, 50, 50), // header tabla bg/fg
+            Color.WHITE, Color.BLACK // campos texto bg/fg
+    );
+
+    // Tamaño base de separadores de toolbar (para recalcular con zoom)
     private static final Dimension SEP_BASE_SIZE = new Dimension(12, 28);
+    // Padding base de los botones (para recalcular con zoom)
     private static final Insets BUTTON_BASE_PADDING = new Insets(6, 10, 6, 10);
 
     public UI() {
-        super("Gestión de Inventario • Neo Swing");
+        super("Gestionar Inventario"); // Título de la ventana principal
 
-        lafBaseFont = UIManager.getFont("Label.font");
+        lafBaseFont = UIManager.getFont("Label.font"); // Fuente base del Look and Feel
         if (lafBaseFont == null)
-            lafBaseFont = new JLabel().getFont();
+            lafBaseFont = new JLabel().getFont(); // Fallback si no hay fuente en UIManager
 
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLayout(new BorderLayout());
+        setDefaultCloseOperation(EXIT_ON_CLOSE); // Cierra la app al cerrar la ventana
+        setLayout(new BorderLayout()); // Layout principal de la ventana
 
         // ======== Menú ========
-        setJMenuBar(createMenuBar());
+        setJMenuBar(createMenuBar()); // Crea y asigna la barra de menú
 
         // ======== Toolbar ========
-        var btnCrear = makeButton("Crear");
-        var btnEditar = makeButton("Editar");
-        var btnBorrar = makeButton("Borrar");
-        var btnMostrar = makeButton("Mostrar");
-        var btnGuardar = makeButton("Guardar");
-        var btnAbrir = makeButton("Abrir");
-        var btnZoomIn = makeButton("Zoom +");
-        var btnZoomOut = makeButton("Zoom −");
-        var btnZoomReset = makeButton("Reset");
-        var btnShortcuts = makeButton("Shortcuts");
-        var btnTheme = makeButton("🌙 Oscuro"); // THEME: botón toggle (inicia en claro, ofrece pasar a oscuro)
+        var btnCrear = makeButton("Crear"); // Botón para crear ítem
+        var btnEditar = makeButton("Editar"); // Botón para editar ítem
+        var btnBorrar = makeButton("Borrar"); // Botón para borrar ítem
+        var btnMostrar = makeButton("Mostrar"); // Botón para mostrar detalles
+        var btnGuardar = makeButton("Guardar"); // Botón para guardar CSV
+        var btnAbrir = makeButton("Abrir"); // Botón para abrir CSV
+        var btnZoomIn = makeButton("Zoom +"); // Aumentar zoom UI
+        var btnZoomOut = makeButton("Zoom −"); // Reducir zoom UI
+        var btnZoomReset = makeButton("Reset"); // Resetear zoom
+        var btnShortcuts = makeButton("Shortcuts"); // Mostrar atajos de teclado
+        var btnTheme = makeButton("🌙 Oscuro"); // Botón para cambiar tema (ofrece modo oscuro)
 
-        toolbar = new JPanel(new GridBagLayout());
-        toolbar.setBorder(new EmptyBorder(10, 12, 10, 12));
-        toolbar.setOpaque(true);
+        toolbar = new JPanel(new GridBagLayout()); // Toolbar con GridBagLayout
+        toolbar.setBorder(new EmptyBorder(10, 12, 10, 12)); // Margen interno de la toolbar
+        toolbar.setOpaque(true); // La toolbar pinta su fondo
 
-        var gbc = new GridBagConstraints();
-        gbc.insets = new Insets(0, 4, 0, 4);
-        gbc.gridy = 0;
+        var gbc = new GridBagConstraints(); // Restricciones para GridBag: Reglas que describen como se debe colocar un
+                                            // componente dentro de un GridBagLayout)
+        gbc.insets = new Insets(0, 4, 0, 4); // Espaciado entre componentes
+        gbc.gridy = 0; // Fila fija (solo una fila)
 
-        int x = 0;
+        int x = 0; // Columna actual
         for (JButton b : new JButton[] { btnCrear, btnEditar, btnBorrar, btnMostrar }) {
-            gbc.gridx = x++;
-            toolbar.add(b, gbc);
+            gbc.gridx = x++; // Columna siguiente
+            toolbar.add(b, gbc); // Añadir botón a la toolbar
         }
         gbc.gridx = x++;
-        toolbar.add(makeSeparator(), gbc);
+        toolbar.add(makeSeparator(), gbc); // Separador visual en toolbar
+
         for (JButton b : new JButton[] { btnGuardar, btnAbrir }) {
             gbc.gridx = x++;
-            toolbar.add(b, gbc);
+            toolbar.add(b, gbc); // Añadir botones Guardar/Abrir
         }
         gbc.gridx = x++;
-        toolbar.add(makeSeparator(), gbc);
+        toolbar.add(makeSeparator(), gbc); // Otro separador
 
-        var lblBuscar = styledLabel("Buscar:");
+        var lblBuscar = styledLabel("Buscar:"); // Etiqueta "Buscar:"
         gbc.gridx = x++;
-        toolbar.add(lblBuscar, gbc);
+        toolbar.add(lblBuscar, gbc); // Añadir etiqueta buscar
         gbc.gridx = x++;
-        toolbar.add(txtFilter, gbc);
+        toolbar.add(txtFilter, gbc); // Campo de texto filtro
 
         gbc.gridx = x++;
-        toolbar.add(makeSeparator(), gbc);
+        toolbar.add(makeSeparator(), gbc); // Separador antes de zoom
         for (JButton b : new JButton[] { btnZoomOut, btnZoomIn, btnZoomReset }) {
             gbc.gridx = x++;
-            toolbar.add(b, gbc);
+            toolbar.add(b, gbc); // Añadir botones de zoom
         }
         gbc.gridx = x++;
-        toolbar.add(makeSeparator(), gbc);
+        toolbar.add(makeSeparator(), gbc); // Separador antes de shortcuts
         gbc.gridx = x++;
-        toolbar.add(btnShortcuts, gbc);
+        toolbar.add(btnShortcuts, gbc); // Botón de atajos
 
-        // THEME: añadir al final
+        // THEME: botón de cambio de tema al final de la toolbar
         gbc.gridx = x++;
-        toolbar.add(makeSeparator(), gbc);
+        toolbar.add(makeSeparator(), gbc); // Separador antes de tema
         gbc.gridx = x++;
-        toolbar.add(btnTheme, gbc);
+        toolbar.add(btnTheme, gbc); // Botón tema
 
-        add(toolbar, BorderLayout.NORTH);
+        add(toolbar, BorderLayout.NORTH); // Colocar toolbar arriba
 
         // ======== Tabla ========
-        table.setFillsViewportHeight(true);
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.setRowHeight(28);
-        table.setShowGrid(false);
-        table.setIntercellSpacing(new Dimension(0, 0));
-        table.setAutoCreateRowSorter(true);
-        sorter = (TableRowSorter<TableModel>) table.getRowSorter();
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        table.setFillsViewportHeight(true); // Rellena toda el área visible
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION); // Solo una fila seleccionada
+        table.setRowHeight(28); // Altura fija de fila
+        table.setShowGrid(false); // Oculta líneas de cuadriculado
+        table.setIntercellSpacing(new Dimension(0, 0));// Sin espacio entre celdas
+        table.setAutoCreateRowSorter(true); // Activa ordenamiento de columnas
+        sorter = (TableRowSorter<TableModel>) table.getRowSorter(); // Guarda el sorter
+        add(new JScrollPane(table), BorderLayout.CENTER); // Tabla dentro de scroll
 
         // ======== Status bar ========
-        status = new JPanel(new BorderLayout());
-        status.setBorder(new EmptyBorder(8, 12, 8, 12));
-        status.add(lblTotal, BorderLayout.WEST);
-        add(status, BorderLayout.SOUTH);
+        status = new JPanel(new BorderLayout()); // Panel inferior para estado
+        status.setBorder(new EmptyBorder(8, 12, 8, 12)); // Margen interno de status bar
+        status.add(lblTotal, BorderLayout.WEST); // Muestra totales a la izquierda
+        add(status, BorderLayout.SOUTH); // Colocar barra de estado abajo
 
         // ======== Acciones ========
-        btnCrear.addActionListener(e -> onCrear());
-        btnEditar.addActionListener(e -> onEditar());
-        btnBorrar.addActionListener(e -> onBorrar());
-        btnMostrar.addActionListener(e -> onMostrar());
-        btnGuardar.addActionListener(e -> onGuardarCSV());
-        btnAbrir.addActionListener(e -> onAbrirCSV());
-        btnZoomIn.addActionListener(e -> zoomIn());
-        btnZoomOut.addActionListener(e -> zoomOut());
-        btnZoomReset.addActionListener(e -> zoomReset());
+        btnCrear.addActionListener(e -> onCrear()); // Acción crear
+        btnEditar.addActionListener(e -> onEditar()); // Acción editar
+        btnBorrar.addActionListener(e -> onBorrar()); // Acción borrar
+        btnMostrar.addActionListener(e -> onMostrar()); // Acción mostrar detalles
+        btnGuardar.addActionListener(e -> onGuardarCSV()); // Acción guardar CSV
+        btnAbrir.addActionListener(e -> onAbrirCSV()); // Acción abrir CSV
+        btnZoomIn.addActionListener(e -> zoomIn()); // Acción zoom +
+        btnZoomOut.addActionListener(e -> zoomOut()); // Acción zoom −
+        btnZoomReset.addActionListener(e -> zoomReset()); // Acción reset zoom
         btnShortcuts.addActionListener(e -> JOptionPane.showMessageDialog(
                 this,
                 """
@@ -345,51 +369,51 @@ public class UI extends JFrame {
                         Zoom: Ctrl++, Ctrl+-, Ctrl+0 (o botones "Zoom").
                         """,
                 "Shortcuts",
-                JOptionPane.INFORMATION_MESSAGE));
+                JOptionPane.INFORMATION_MESSAGE)); // Muestra ventana con ayuda de atajos
 
-        // THEME: toggle
+        // THEME: alternar entre claro y oscuro
         btnTheme.addActionListener(e -> {
-            if (currentTheme == Theme.LIGHT) {
-                applyTheme(Theme.DARK);
-                btnTheme.setText("☀️ Claro");
+            if (currentTheme == Theme.LIGHT) { // Si está en claro…
+                applyTheme(Theme.DARK); // aplica oscuro
+                btnTheme.setText("☀️ Claro"); // texto del botón pasa a "Claro"
             } else {
-                applyTheme(Theme.LIGHT);
-                btnTheme.setText("🌙 Oscuro");
+                applyTheme(Theme.LIGHT); // aplica claro
+                btnTheme.setText("🌙 Oscuro"); // texto del botón pasa a "Oscuro"
             }
         });
 
-        // Filtro
+        // Filtro: cada cambio en el texto aplica el filtro en la tabla
         txtFilter.getDocument().addDocumentListener(new SimpleDocumentListener() {
             @Override
             public void update(DocumentEvent e) {
-                applyFilter();
+                applyFilter(); // Refiltra filas según texto
             }
         });
 
         // ======== Atajos ========
-        installShortcuts();
+        installShortcuts(); // Configura atajos de teclado globales
 
-        updateTotals();
+        updateTotals(); // Calcula y muestra totales iniciales
 
-        // THEME: aplicar tema inicial (CLARO)
+        // THEME: aplicar el tema inicial (claro)
         applyTheme(Theme.LIGHT);
 
-        // Guardar tamaño base del campo de búsqueda (para zoom)
+        // Guardar tamaño base del campo de búsqueda (se usa para zoom)
         SwingUtilities.invokeLater(() -> {
             if (filterBaseSize == null)
-                filterBaseSize = txtFilter.getPreferredSize();
+                filterBaseSize = txtFilter.getPreferredSize(); // Tamaño inicial del campo
         });
 
-        setSize(940, 560);
-        setLocationRelativeTo(null);
+        setSize(940, 560); // Tamaño inicial de la ventana
+        setLocationRelativeTo(null); // Centra la ventana en pantalla
     }
 
     // ======== Menú ========
-    private JMenuBar createMenuBar() {
-        var mb = new JMenuBar();
+    private JMenuBar createMenuBar() { // Crea la barra de menú
+        var mb = new JMenuBar(); // instancia de JMenuBar
         mb.setBorder(new EmptyBorder(6, 10, 6, 10));
 
-        JMenu mFile = new JMenu("Archivo");
+        JMenu mFile = new JMenu("Archivo"); // menu de archivo
         JMenuItem miNuevo = new JMenuItem("Nuevo (limpiar)");
         JMenuItem miAbrir = new JMenuItem("Abrir CSV…");
         JMenuItem miGuardar = new JMenuItem("Guardar CSV…");
@@ -406,9 +430,9 @@ public class UI extends JFrame {
             }
         });
 
-        miAbrir.addActionListener(e -> onAbrirCSV());
-        miGuardar.addActionListener(e -> onGuardarCSV());
-        miSalir.addActionListener(e -> dispose());
+        miAbrir.addActionListener(e -> onAbrirCSV()); // llama al metodo de abrir CSV
+        miGuardar.addActionListener(e -> onGuardarCSV()); // llama al metodo de guardar CSV
+        miSalir.addActionListener(e -> dispose()); // cierra la aplicacion
 
         mFile.add(miNuevo);
         mFile.addSeparator();
@@ -460,29 +484,28 @@ public class UI extends JFrame {
         if (p != null) {
             // 1) Insertar en BD
             if (!Database.productExist(p.nombre)) {
-                  int idGenerado = Database.insertProduct(
-                    p.nombre,
-                    p.cantidad,
-                    p.precio.doubleValue());
+                int idGenerado = Database.insertProduct(
+                        p.nombre,
+                        p.cantidad,
+                        p.precio.doubleValue());
 
-            if (idGenerado != -1) {
-                // 2) Producto con ID real
-                var conIdReal = new Producto(idGenerado, p.nombre, p.cantidad, p.precio);
+                if (idGenerado != -1) {
+                    // 2) Producto con ID real
+                    var conIdReal = new Producto(idGenerado, p.nombre, p.cantidad, p.precio);
 
-                // 3) Solo agregar al modelo
-                model.add(conIdReal);
-                selectLastRow();
-                updateTotals();
+                    // 3) Solo agregar al modelo
+                    model.add(conIdReal);
+                    selectLastRow();
+                    updateTotals();
+                } else {
+                    error("No se pudo insertar el producto en la base de datos.");
+                }
             } else {
-                error("No se pudo insertar el producto en la base de datos.");
+                error("El produto ya existe, favor de editarlo o eliminarlo");
             }
-        } else {
-            error("El produto ya existe, favor de editarlo o eliminarlo");
         }
-            }
- 
-        }
-    
+
+    }
 
     private void onEditar() {
         int row = table.getSelectedRow();
@@ -525,15 +548,31 @@ public class UI extends JFrame {
         }
     }
 
+    // Metodo que se ejecuta cuando el usuario quiere mostrar el detalle de un
+    // producto
     private void onMostrar() {
+        // Obtiene la fila seleccionada en la tabla
         int row = table.getSelectedRow();
+
+        // Si no hay ninguna fila seleccionada, muestra una advertencia y termina
         if (row < 0) {
             warn("Selecciona un producto para mostrar.");
             return;
         }
+
+        // Convierte el indice de la fila visual al indice real del modelo
         int modelRow = table.convertRowIndexToModel(row);
+
+        // Obtiene el producto correspondiente a esa fila en el modelo
         var p = model.get(modelRow);
-        BigDecimal subtotal = p.precio.multiply(new BigDecimal(p.cantidad)).setScale(2, RoundingMode.HALF_UP);
+
+        // Calcula el subtotal multiplicando precio por cantidad
+        // Se ajusta a 2 decimales con redondeo HALF_UP
+        BigDecimal subtotal = p.precio
+                .multiply(new BigDecimal(p.cantidad))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        // Muestra un mensaje informativo con los datos del producto
         info("""
                 Detalle del producto
                 --------------------
@@ -542,7 +581,12 @@ public class UI extends JFrame {
                 Cantidad: %d
                 Precio: $%s
                 Subtotal: $%s
-                """.formatted(p.id, p.nombre, p.cantidad, moneyFmt.format(p.precio), moneyFmt.format(subtotal)));
+                """.formatted(
+                p.id,
+                p.nombre,
+                p.cantidad,
+                moneyFmt.format(p.precio),
+                moneyFmt.format(subtotal)));
     }
 
     // ======== Filtro ========
@@ -691,20 +735,30 @@ public class UI extends JFrame {
 
     // ======== Dialog crear/editar ========
     private Producto showProductoDialog(Producto base) {
+        // Campo de texto para nombre (22 columnas)
         var txtNombre = new JTextField(22);
+
+        // Spinner numerico para cantidad con modelo limitado por CANT_MIN y CANT_MAX
         var spCantidad = new JSpinner(
                 new SpinnerNumberModel((base == null ? 0 : base.cantidad), CANT_MIN, CANT_MAX, 1));
+
+        // Campo de texto para precio
         var txtPrecio = new JTextField(10);
 
+        // Si se esta editando un producto, cargar sus datos en los campos
         if (base != null) {
             txtNombre.setText(base.nombre);
             txtPrecio.setText(base.precio.toPlainString());
         }
 
+        // Panel del formulario con GridBagLayout
         var form = new JPanel(new GridBagLayout());
-        form.setOpaque(false);
+        form.setOpaque(false); // Fondo transparente
+
         GridBagConstraints g = new GridBagConstraints();
-        g.insets = new Insets(6, 8, 6, 8);
+        g.insets = new Insets(6, 8, 6, 8); // Espaciado entre componentes
+
+        // Primera columna: etiquetas alineadas a la derecha
         g.gridx = 0;
         g.gridy = 0;
         g.anchor = GridBagConstraints.LINE_END;
@@ -714,6 +768,7 @@ public class UI extends JFrame {
         g.gridy++;
         form.add(styledLabel("Precio:"), g);
 
+        // Segunda columna: campos alineados a la izquierda
         g.gridx = 1;
         g.gridy = 0;
         g.anchor = GridBagConstraints.LINE_START;
@@ -723,39 +778,55 @@ public class UI extends JFrame {
         g.gridy++;
         form.add(txtPrecio, g);
 
+        // Determinar titulo segun si es crear o editar
         String titulo = (base == null) ? "Crear producto" : ("Editar producto (ID " + base.id + ")");
+
+        // Bucle para mostrar el dialogo hasta que los datos sean validos
         while (true) {
             int opt = JOptionPane.showConfirmDialog(this, form, titulo,
                     JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+            // Si se cancela o cierra el dialogo, no se devuelve producto
             if (opt != JOptionPane.OK_OPTION)
                 return null;
 
+            // Obtener valores ingresados
             String nombre = txtNombre.getText().trim();
             int cantidad = (Integer) spCantidad.getValue();
             String sPrecio = txtPrecio.getText().trim();
 
+            // Validacion del nombre
             if (nombre.isBlank()) {
-                error("El nombre no puede estar vacío.");
+                error("El nombre no puede estar vacio.");
                 continue;
             }
             if (nombre.length() > 120) {
-                error("Nombre demasiado largo (máx. 120).");
+                error("Nombre demasiado largo (max. 120).");
                 continue;
             }
 
+            // Validacion del precio con BigDecimal
             BigDecimal precio;
             try {
+                // Comprobar formato numerico permitido
                 if (!sPrecio.matches("\\d{1,12}([.,]\\d{1,2})?"))
                     throw new NumberFormatException();
+
+                // Convertir coma a punto si se uso coma decimal
                 sPrecio = sPrecio.replace(',', '.');
+
+                // Convertir a BigDecimal
                 precio = new BigDecimal(sPrecio);
+
+                // Validar rango permitido
                 if (precio.compareTo(PRECIO_MIN) < 0 || precio.compareTo(PRECIO_MAX) > 0)
                     throw new NumberFormatException();
             } catch (NumberFormatException ex) {
-                error("Precio inválido. Ejemplos válidos: 0, 9.99, 12345.50 (máx: " + PRECIO_MAX + ")");
+                error("Precio invalido. Ejemplos validos: 0, 9.99, 12345.50 (max: " + PRECIO_MAX + ")");
                 continue;
             }
 
+            // Crear producto nuevo o actualizar existente
             if (base == null)
                 return new Producto(0, nombre, cantidad, precio);
             else
