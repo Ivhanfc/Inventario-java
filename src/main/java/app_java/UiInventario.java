@@ -29,7 +29,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class UI extends JFrame {
+public class UiInventario extends JFrame {
 
     // ======== Modelo de dominio ========
 
@@ -246,7 +246,7 @@ public class UI extends JFrame {
     // Padding base de los botones (para recalcular con zoom)
     private static final Insets BUTTON_BASE_PADDING = new Insets(6, 10, 6, 10);
 
-    public UI() {
+    public UiInventario() {
         super("Gestionar Inventario"); // Título de la ventana principal
 
         lafBaseFont = UIManager.getFont("Label.font"); // Fuente base del Look and Feel

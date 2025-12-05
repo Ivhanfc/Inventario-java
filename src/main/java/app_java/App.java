@@ -8,11 +8,11 @@ import javax.swing.SwingUtilities;
 
 public class App {
     public static void main(String[] args) {
-        // aqui inicializamos la inferfaz grafica (javaswing)
+
         SwingUtilities.invokeLater(() -> {
-            UI.installNimbusDarkish();
-            UI ui = new UI();
+            UiGeneral ui = new UiGeneral();
             ui.setVisible(true);
+
         });
 
         // aqui se inicia el servidor
