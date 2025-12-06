@@ -1,4 +1,5 @@
 {
-    "java.compile.nullAnalysis.mode": "automatic",
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.project.referencedLibraries": [
+        "C:/Users/USUARIO/Desktop/openjfx-25.0.1_windows-x64_bin-sdk/javafx-sdk-25.0.1/lib/**/*.jar"
+    ]
 }

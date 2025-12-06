@@ -1,0 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+.root {
+    -fx-font-family: 'Inter', 'Segoe UI', sans-serif;
+    -fx-background-color: linear-gradient(135deg, #f5f6f8 0%, #eef1f5 60%, #e5e8ed 100%);
+}
+
+.card {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #e5e7eb;
+    -fx-border-radius: 18;
+    -fx-background-radius: 18;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.12), 20, 0, 0, 12);
+    -fx-spacing: 10;
+}
+
+.title {
+    -fx-text-fill: #0f172a;
+    -fx-font-size: 20px;
+    -fx-font-weight: 700;
+}
+
+.subtitle {
+    -fx-text-fill: #4b5563;
+    -fx-padding: 0 0 8 0;
+}
+
+.text-field,
+.password-field {
+    -fx-background-color: #f9fafb;
+    -fx-text-fill: #0f172a;
+    -fx-prompt-text-fill: #9aa3b1;
+    -fx-border-color: #d0d5dd;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-padding: 10 12 10 12;
+    -fx-focus-color: #0a84ff;
+    -fx-faint-focus-color: transparent;
+}
+
+.text-field:focused,
+.password-field:focused {
+    -fx-border-color: #0a84ff;
+    -fx-background-color: #f5f7fb;
+    -fx-effect: dropshadow(gaussian, rgba(10, 132, 255, 0.25), 12, 0, 0, 6);
+}
+
+.login-btn {
+    -fx-background-color: linear-gradient(120deg, #0a84ff, #0066cc);
+    -fx-text-fill: rgb(0, 0, 0);
+    -fx-font-weight: 700;
+    -fx-padding: 12 16;
+    -fx-background-radius: 14;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(10, 132, 255, 0.25), 14, 0, 0, 8);
+}
+
+.login-btn:hover {
+    -fx-background-color: linear-gradient(120deg, #0b8fff, #0a6fd9);
+    -fx-effect: dropshadow(gaussian, rgba(10, 132, 255, 0.35), 18, 0, 0, 10);
+    -fx-translate-y: -1;
+
+}
+
+.login-btn:pressed {
+    -fx-background-color: #0a6fd9;
+    -fx-effect: none;
+    -fx-translate-y: 0;
+}
